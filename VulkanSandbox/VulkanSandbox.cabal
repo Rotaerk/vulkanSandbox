@@ -1,0 +1,33 @@
+cabal-version: 3.4
+
+name: VulkanSandbox
+version: 0.1.0.0
+synopsis: A sandbox for tinkering with Vulkan.
+license: MIT
+license-file: LICENSE
+author: Matthew Stewart
+maintainer: m.scott.stewart@gmail.com
+category: Graphics
+build-type: Simple
+
+common common
+  hs-source-dirs: src
+  ghc-options: -threaded -Wall -Wno-name-shadowing -Wno-unused-matches -fno-ignore-asserts
+  default-language: GHC2021
+  build-depends:
+    clock,
+    exceptions,
+    extra,
+    GLFW-b,
+    resourcet,
+    vulkan-raw,
+    base
+
+executable VulkanSandbox
+  import: common
+  main-is: VulkanSandbox.hs
+  other-modules:
+    ApplicationException
+    Data.Acquire.Local
+    Graphics.UI.GLFW.Local
+    Prelude.Local

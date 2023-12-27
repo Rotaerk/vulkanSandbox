@@ -1,0 +1,3 @@
+packages:
+  VulkanSandbox/VulkanSandbox.cabal
+  vulkan/vulkan-raw/vulkan-raw.cabal
