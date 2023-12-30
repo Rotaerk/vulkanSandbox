@@ -1,4 +1,4 @@
-module Data.Acquire.Local (
+module Local.Data.Acquire (
   module Data.Acquire,
   allocateAcquire_,
   with_

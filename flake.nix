@@ -8,7 +8,7 @@
   outputs = { self, nixpkgs }:
     let
       pkgs = import nixpkgs { system = "x86_64-linux"; };
-      hs = pkgs.haskell.packages.ghc928;
+      hs = pkgs.haskellPackages;
       VulkanSandbox = hs.callCabal2nix "VulkanSandbox" ./VulkanSandbox {};
     in {
 

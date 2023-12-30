@@ -1,4 +1,4 @@
-module Prelude.Local where
+module Local.Prelude where
 
 import Control.Monad.IO.Class
 

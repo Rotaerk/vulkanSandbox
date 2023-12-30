@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
-module Graphics.UI.GLFW.Local (
+module Local.Graphics.UI.GLFW (
   module Graphics.UI.GLFW,
   GLFWException(..),
   throwGLFWExceptionM,
@@ -10,10 +10,11 @@ module Graphics.UI.GLFW.Local (
   getWindowStatus
 ) where
 
+import Local.Data.Acquire
+
 import Control.Exception
 import Control.Monad.Catch
 import Control.Monad.Extra
-import Data.Acquire.Local
 import Data.IORef
 import Graphics.UI.GLFW
 import qualified Graphics.UI.GLFW as GLFW

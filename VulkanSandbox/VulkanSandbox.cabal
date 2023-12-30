@@ -28,6 +28,12 @@ executable VulkanSandbox
   main-is: VulkanSandbox.hs
   other-modules:
     ApplicationException
-    Data.Acquire.Local
-    Graphics.UI.GLFW.Local
-    Prelude.Local
+    Local.Control.Monad.Trans.Resource
+    Local.Data.Acquire
+    Local.Foreign.Storable.Offset
+    Local.Graphics.UI.GLFW
+    Local.Prelude
+    Vulkan.Auxiliary
+    Vulkan.Auxiliary.DefaultSType
+    Vulkan.Auxiliary.Exception
+    Vulkan.Auxiliary.Resource

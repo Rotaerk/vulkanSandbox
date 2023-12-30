@@ -1,3 +1,9 @@
 packages:
   VulkanSandbox/VulkanSandbox.cabal
   vulkan/vulkan-raw/vulkan-raw.cabal
+
+allow-newer:
+  storable-offset:base
+
+package vulkan-raw
+  flags: +VK_EXT_debug_report
