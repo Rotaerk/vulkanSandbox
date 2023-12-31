@@ -6,8 +6,6 @@ where
 
 -- import Local.Prelude
 
-import Local.Control.Monad.Trans.Resource
-import Local.Data.Acquire
 import Data.Function
 import Foreign.Marshal.Alloc
 import Foreign.Ptr
@@ -15,6 +13,7 @@ import Foreign.Storable
 import Vulkan.Core_1_0
 import Vulkan.Auxiliary.Exception
 
+{-
 data VkaResource ci vk =
   VkaResource {
     vkaResource'getCreate :: IO (Ptr ci -> Ptr VkAllocationCallbacks -> Ptr vk -> IO VkResult),
@@ -55,7 +54,6 @@ vkaSimpleParamResource_ ::
   VkaResource ci vk
 vkaSimpleParamResource_ create destroy name = vkaSimpleParamResource create destroy name [VK_SUCCESS]
 
-{-
 vkaNewWithResult :: (Storable vk, VulkanMarshal ci) => VkaResource ci vk -> ci -> IO (VkResult, vk)
 vkaNewWithResult VkaResource{..} createInfo =
   withPtr createInfo $ \createInfoPtr ->

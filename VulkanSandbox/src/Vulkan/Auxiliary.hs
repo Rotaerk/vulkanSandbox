@@ -8,7 +8,7 @@ module Vulkan.Auxiliary (
   module Vulkan.Auxiliary.Resource,
   module Vulkan.Core_1_0,
   vkaSetPtrNextToNull,
-  vkaInstanceResource,
+--  vkaInstanceResource,
 ) where
 
 import Local.Foreign.Storable.Offset
@@ -30,5 +30,5 @@ vkaSetPtrNextToNull ::
   IO ()
 vkaSetPtrNextToNull = setPtrField @"pNext" nullPtr
 
-vkaInstanceResource :: VkaResource VkInstanceCreateInfo VkInstance
-vkaInstanceResource = vkaSimpleResource_ vkCreateInstance vkDestroyInstance "vkCreateInstance"
+--vkaInstanceResource :: VkaResource VkInstanceCreateInfo VkInstance
+--vkaInstanceResource = vkaSimpleResource_ vkCreateInstance vkDestroyInstance "vkCreateInstance"

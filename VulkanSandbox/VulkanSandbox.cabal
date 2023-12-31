@@ -19,7 +19,6 @@ common common
     exceptions,
     extra,
     GLFW-b,
-    resourcet,
     vulkan-raw,
     base
 
@@ -28,11 +27,11 @@ executable VulkanSandbox
   main-is: VulkanSandbox.hs
   other-modules:
     ApplicationException
-    Local.Control.Monad.Trans.Resource
-    Local.Data.Acquire
+    Local.Foreign.Marshal.Alloc
     Local.Foreign.Storable.Offset
     Local.Graphics.UI.GLFW
     Local.Prelude
+    Scope
     Vulkan.Auxiliary
     Vulkan.Auxiliary.DefaultSType
     Vulkan.Auxiliary.Exception

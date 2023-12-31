@@ -4,13 +4,11 @@ module Local.Graphics.UI.GLFW (
   module Graphics.UI.GLFW,
   GLFWException(..),
   throwGLFWExceptionM,
-  acquireInitialization,
-  acquireWindow,
+  initOrThrow,
+  createWindowOrThrow,
   WindowStatus(..),
   getWindowStatus
 ) where
-
-import Local.Data.Acquire
 
 import Control.Exception
 import Control.Monad.Catch
@@ -28,17 +26,13 @@ instance Exception GLFWException where
 throwGLFWExceptionM :: MonadThrow m => String -> m a
 throwGLFWExceptionM = throwM . GLFWException
 
-acquireInitialization :: Acquire ()
-acquireInitialization =
-  unlessM GLFW.init (throwGLFWExceptionM "init")
-  `mkAcquire`
-  const GLFW.terminate
+initOrThrow :: IO ()
+initOrThrow = unlessM GLFW.init $ throwGLFWExceptionM "init"
 
-acquireWindow :: Int -> Int -> String -> Acquire GLFW.Window
-acquireWindow width height title =
-  fromMaybeM (throwGLFWExceptionM "createWindow") (GLFW.createWindow width height title Nothing Nothing)
-  `mkAcquire`
-  GLFW.destroyWindow
+createWindowOrThrow :: Int -> Int -> String -> Maybe Monitor -> Maybe Window -> IO GLFW.Window
+createWindowOrThrow width height title mmon mwin =
+  fromMaybeM (throwGLFWExceptionM "createWindow") $
+  GLFW.createWindow width height title mmon mwin
 
 data WindowStatus = WindowReady | WindowResized | WindowClosed
 
