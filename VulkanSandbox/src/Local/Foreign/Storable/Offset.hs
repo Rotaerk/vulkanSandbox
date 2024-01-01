@@ -3,7 +3,7 @@
 
 module Local.Foreign.Storable.Offset (
   module Foreign.Storable.Offset,
-  setPtrField
+  pokePtrOffset
 ) where
 
 import Foreign.Ptr
@@ -11,10 +11,10 @@ import Foreign.Storable
 import Foreign.Storable.Offset
 import GHC.Records
 
-setPtrField ::
+pokePtrOffset ::
   forall x r a.
   (HasField x r a, Offset x r, Storable a) =>
   (?ptr :: Ptr r) =>
   a -> IO ()
-setPtrField = poke (offset @x ?ptr)
-{-# INLINE setPtrField #-}
+pokePtrOffset = poke (offset @x ?ptr)
+{-# INLINE pokePtrOffset #-}

@@ -25,7 +25,7 @@ vkaSetPtrSTypeToDefault ::
     ?ptr :: Ptr r
   ) =>
   IO ()
-vkaSetPtrSTypeToDefault = setPtrField @"sType" (vkaDefaultSType @r)
+vkaSetPtrSTypeToDefault = pokePtrOffset @"sType" (vkaDefaultSType @r)
 
 instance VkaDefaultSType VkInstanceCreateInfo where
   vkaDefaultSType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO

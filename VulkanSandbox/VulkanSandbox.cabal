@@ -35,4 +35,3 @@ executable VulkanSandbox
     Vulkan.Auxiliary
     Vulkan.Auxiliary.DefaultSType
     Vulkan.Auxiliary.Exception
-    Vulkan.Auxiliary.Resource
