@@ -2,15 +2,15 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Main where
 
-import Local.Foreign.Marshal.Alloc
-import Local.Foreign.Storable.Offset
 import qualified Local.Graphics.UI.GLFW as GLFW
+import Local.Control.Monad.Cont
 
 import ApplicationException
 import Control.Exception
@@ -43,7 +43,7 @@ main =
   )
 
 mainBody :: IO ()
-mainBody = withNewScope_ do
+mainBody = withNewImplicitScope_ do
   GLFW.setErrorCallback . Just $ \errorCode errorMessage ->
     GLFW.throwGLFWExceptionM ("GLFW error callback: " ++ show errorCode ++ " - " ++ errorMessage)
   putStrLn "GLFW error callback set."
@@ -64,34 +64,32 @@ mainBody = withNewScope_ do
   requiredInstanceExtensions <- (appInstanceExtensions ++) <$> liftIO GLFW.getRequiredInstanceExtensions
   putStrLn "Identified required vulkan extensions."
 
-  vulkanInstance <-
-    scoped
-      (
-        alloca @VkInstanceCreateInfo $ \createInfoPtr ->
-        alloca @VkApplicationInfo $ \appInfoPtr ->
-        withCString utf8 "Vulkan Sandbox" $ \appNamePtr ->
-        withArray requiredInstanceExtensions $ \extsPtr ->
-        withCStringsLen utf8 validationLayers $ \numLayers layersPtr -> do
-          let ?ptr = appInfoPtr in do
-            vkaSetPtrSTypeToDefault
-            vkaSetPtrNextToNull
-            pokePtrOffset @"pApplicationName" (castPtr appNamePtr)
-            pokePtrOffset @"applicationVersion" (VK_MAKE_VERSION 1 0 0)
-            pokePtrOffset @"pEngineName" nullPtr
-            pokePtrOffset @"engineVersion" 0
-            pokePtrOffset @"apiVersion" VK_API_VERSION_1_0
-          let ?ptr = createInfoPtr in do
-            vkaSetPtrSTypeToDefault
-            vkaSetPtrNextToNull
-            pokePtrOffset @"flags" 0
-            pokePtrOffset @"pApplicationInfo" appInfoPtr
-            pokePtrOffset @"enabledLayerCount" (fromIntegral numLayers)
-            pokePtrOffset @"ppEnabledLayerNames" (castPtr layersPtr)
-            pokePtrOffset @"enabledExtensionCount" (fromIntegral $ length requiredInstanceExtensions)
-            pokePtrOffset @"ppEnabledExtensionNames" (castPtr extsPtr)
-          allocaPeek $ \ptr -> vkCreateInstance createInfoPtr nullPtr ptr >>= vkaThrowIfResultNotSuccess "vkCreateInstance"
-      )
-      (\vulkanInstance -> vkDestroyInstance vulkanInstance nullPtr)
+  vulkanInstance <- vkaCreateScopedInstance
+    (
+      vkaWithInstanceCreateInfoPtr VkaInstanceCreateInfo {
+        withNextPtr = ($ nullPtr),
+        flags = 0,
+
+        withAppInfoPtr =
+          vkaWithApplicationInfoPtr VkaApplicationInfo {
+            withAppNamePtr = withCString utf8 "Vulkan Sandbox",
+            appVersion = VK_MAKE_VERSION 1 0 0,
+            withEngineNamePtr = ($ nullPtr),
+            engineVersion = 0,
+            apiVersion = VK_API_VERSION_1_0
+          },
+
+        withEnabledLayerNamesPtrLen = runContT do
+          (numLayers, layersPtr) <- ContT $ uncurryWith2 (withCStringsLen utf8 validationLayers)
+          return (layersPtr, fromIntegral numLayers),
+
+        withEnabledExtensionNamesPtrLen = runContT do
+          (numExtensions, extensionsPtr) <- ContT $ uncurryWith2 (withArrayLen requiredInstanceExtensions)
+          return (extensionsPtr, fromIntegral numExtensions)
+      }
+    )
+    ($ nullPtr)
+    ($ nullPtr)
   putStrLn "Vulkan instance created."
 
   putStrLn "Render loop starting."

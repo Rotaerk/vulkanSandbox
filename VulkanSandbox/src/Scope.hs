@@ -3,10 +3,11 @@
 
 module Scope (
   Scope(),
-  Scoped,
-  withScope,
-  withNewScope,
-  withNewScope_,
+  ImplicitScope,
+  theScope,
+  withImplicitScope,
+  withNewImplicitScope,
+  withNewImplicitScope_,
   onScopeExit,
   scoped
 ) where
@@ -17,24 +18,27 @@ import Data.IORef
 
 newtype Scope s = Scope { scope'onExitRef :: IORef (IO ()) }
 
-type Scoped s = (?scope :: Scope s)
+type ImplicitScope s = (?scope :: Scope s)
 
-withScope :: Scope s -> (Scoped s => IO a) -> IO a
-withScope scope scopedAction = let ?scope = scope in scopedAction
+theScope :: ImplicitScope s => Scope s
+theScope = ?scope
 
-withNewScope :: (forall s. Scoped s => Scope s -> IO a) -> IO a
-withNewScope scopedAction = do
+withImplicitScope :: Scope s -> (ImplicitScope s => a) -> a
+withImplicitScope scope body = let ?scope = scope in body
+
+withNewImplicitScope :: (forall s. ImplicitScope s => Scope s -> IO a) -> IO a
+withNewImplicitScope scopedAction = withNewImplicitScope_ (scopedAction theScope)
+
+withNewImplicitScope_ :: (forall s. ImplicitScope s => IO a) -> IO a
+withNewImplicitScope_ scopedAction = do
   onExitRef <- newIORef (pure ())
   let scope = Scope onExitRef
-  withScope scope (scopedAction scope) `finally` join (readIORef onExitRef)
+  withImplicitScope scope scopedAction `finally` join (readIORef onExitRef)
 
-withNewScope_ :: (forall s. Scoped s => IO a) -> IO a
-withNewScope_ scopedAction = withNewScope (const scopedAction)
+onScopeExit :: ImplicitScope s => IO () -> IO ()
+onScopeExit action = modifyIORef (scope'onExitRef theScope) (action >>)
 
-onScopeExit :: Scoped s => IO () -> IO ()
-onScopeExit action = modifyIORef (scope'onExitRef ?scope) (action >>)
-
-scoped :: Scoped s => IO r -> (r -> IO ()) -> IO r
+scoped :: ImplicitScope s => IO r -> (r -> IO ()) -> IO r
 scoped acquire release = mask_ do
   resource <- acquire
   onScopeExit $ release resource

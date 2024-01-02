@@ -19,6 +19,7 @@ common common
     exceptions,
     extra,
     GLFW-b,
+    mtl >= 2.3.1,
     vulkan-raw,
     base
 
@@ -30,8 +31,10 @@ executable VulkanSandbox
     Local.Foreign.Marshal.Alloc
     Local.Foreign.Storable.Offset
     Local.Graphics.UI.GLFW
+    Local.Control.Monad.Cont
     Local.Prelude
     Scope
     Vulkan.Auxiliary
-    Vulkan.Auxiliary.DefaultSType
     Vulkan.Auxiliary.Exception
+    Vulkan.Auxiliary.Create
+    Vulkan.Auxiliary.Create.Instance

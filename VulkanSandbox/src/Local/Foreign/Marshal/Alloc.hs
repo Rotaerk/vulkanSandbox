@@ -16,5 +16,5 @@ allocaPeek :: Storable a => (Ptr a -> IO ()) -> IO a
 allocaPeek f = alloca \ptr -> f ptr >> peek ptr
 
 {-# INLINE scopedMalloc #-}
-scopedMalloc :: (Storable a, Scoped s) => IO (Ptr a)
+scopedMalloc :: (Storable a, ImplicitScope s) => IO (Ptr a)
 scopedMalloc = scoped malloc free
