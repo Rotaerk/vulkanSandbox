@@ -28,14 +28,14 @@ import Vulkan.Auxiliary.Exception
 
 data VkaApplicationInfo =
   VkaApplicationInfo {
-    withAppNamePtr :: forall a. IOWith CString a,
+    withAppNamePtr :: SomeIOCPS CString,
     appVersion :: Word32,
-    withEngineNamePtr :: forall a. IOWith CString a,
+    withEngineNamePtr :: SomeIOCPS CString,
     engineVersion :: Word32,
     apiVersion :: Word32
   }
 
-vkaWithApplicationInfoPtr :: VkaApplicationInfo -> IOWith (Ptr VkApplicationInfo) a
+vkaWithApplicationInfoPtr :: VkaApplicationInfo -> SomeIOCPS (Ptr VkApplicationInfo)
 vkaWithApplicationInfoPtr info = runContT do
   appInfoPtr <- ContT $ alloca @VkApplicationInfo
   appNamePtr <- ContT $ withAppNamePtr info
@@ -52,14 +52,14 @@ vkaWithApplicationInfoPtr info = runContT do
 
 data VkaInstanceCreateInfo =
   VkaInstanceCreateInfo {
-    withNextPtr :: forall a. IOWith (Ptr ()) a,
+    withNextPtr :: SomeIOCPS (Ptr ()),
     flags :: VkInstanceCreateFlags,
-    withAppInfoPtr :: forall a. IOWith (Ptr VkApplicationInfo) a,
-    withEnabledLayerNamesPtrLen :: forall a. IOWith (Ptr CString, Word32) a,
-    withEnabledExtensionNamesPtrLen :: forall a. IOWith (Ptr CString, Word32) a
+    withAppInfoPtr :: SomeIOCPS (Ptr VkApplicationInfo),
+    withEnabledLayerNamesPtrLen :: SomeIOCPS (Ptr CString, Word32),
+    withEnabledExtensionNamesPtrLen :: SomeIOCPS (Ptr CString, Word32)
   }
 
-vkaWithInstanceCreateInfoPtr :: VkaInstanceCreateInfo -> IOWith (Ptr VkInstanceCreateInfo) a
+vkaWithInstanceCreateInfoPtr :: VkaInstanceCreateInfo -> SomeIOCPS (Ptr VkInstanceCreateInfo)
 vkaWithInstanceCreateInfoPtr info = runContT $ do
   createInfoPtr <- ContT $ alloca @VkInstanceCreateInfo
   nextPtr <- ContT $ withNextPtr info
@@ -78,8 +78,8 @@ vkaWithInstanceCreateInfoPtr info = runContT $ do
   return createInfoPtr
 
 vkaCreateInstance ::
-  (forall a. IOWith (Ptr VkInstanceCreateInfo) a) ->
-  (forall a. IOWith (Ptr VkAllocationCallbacks) a) ->
+  SomeIOCPS (Ptr VkInstanceCreateInfo) ->
+  SomeIOCPS (Ptr VkAllocationCallbacks) ->
   IO VkInstance
 vkaCreateInstance withCreateInfoPtr withAllocatorPtr = evalContT $ do
   createInfoPtr <- ContT withCreateInfoPtr
@@ -90,7 +90,7 @@ vkaCreateInstance withCreateInfoPtr withAllocatorPtr = evalContT $ do
 
 vkaDestroyInstance ::
   VkInstance ->
-  (forall a. IOWith (Ptr VkAllocationCallbacks) a) ->
+  SomeIOCPS (Ptr VkAllocationCallbacks) ->
   IO ()
 vkaDestroyInstance vulkanInstance withAllocatorPtr = evalContT $ do
   allocatorPtr <- ContT withAllocatorPtr
@@ -98,9 +98,9 @@ vkaDestroyInstance vulkanInstance withAllocatorPtr = evalContT $ do
 
 vkaCreateScopedInstance ::
   ImplicitScope s =>
-  (forall a. IOWith (Ptr VkInstanceCreateInfo) a) ->
-  (forall a. IOWith (Ptr VkAllocationCallbacks) a) ->
-  (forall a. IOWith (Ptr VkAllocationCallbacks) a) ->
+  SomeIOCPS (Ptr VkInstanceCreateInfo) ->
+  SomeIOCPS (Ptr VkAllocationCallbacks) ->
+  SomeIOCPS (Ptr VkAllocationCallbacks) ->
   IO VkInstance
 vkaCreateScopedInstance withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr =
   scoped

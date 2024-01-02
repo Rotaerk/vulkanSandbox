@@ -80,11 +80,11 @@ mainBody = withNewImplicitScope_ do
           },
 
         withEnabledLayerNamesPtrLen = runContT do
-          (numLayers, layersPtr) <- ContT $ uncurryWith2 (withCStringsLen utf8 validationLayers)
+          (numLayers, layersPtr) <- ContT $ uncurryCPS2 (withCStringsLen utf8 validationLayers)
           return (layersPtr, fromIntegral numLayers),
 
         withEnabledExtensionNamesPtrLen = runContT do
-          (numExtensions, extensionsPtr) <- ContT $ uncurryWith2 (withArrayLen requiredInstanceExtensions)
+          (numExtensions, extensionsPtr) <- ContT $ uncurryCPS2 (withArrayLen requiredInstanceExtensions)
           return (extensionsPtr, fromIntegral numExtensions)
       }
     )
