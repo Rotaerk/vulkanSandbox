@@ -10,6 +10,10 @@ maintainer: m.scott.stewart@gmail.com
 category: Graphics
 build-type: Simple
 
+flag ndebug
+  Description: Disables debugging.
+  Default: False
+
 common common
   hs-source-dirs: src
   ghc-options: -threaded -Wall -Wno-name-shadowing -Wno-unused-matches -fno-ignore-asserts
@@ -29,12 +33,14 @@ executable VulkanSandbox
   other-modules:
     ApplicationException
     Local.Foreign.Marshal.Alloc
+    Local.Foreign.Ptr
     Local.Foreign.Storable.Offset
     Local.Graphics.UI.GLFW
     Local.Control.Monad.Cont
     Local.Prelude
-    Scope
+    ScopedResource
     Vulkan.Auxiliary
+    Vulkan.Auxiliary.Core
+    Vulkan.Auxiliary.Core.Instance
     Vulkan.Auxiliary.Exception
-    Vulkan.Auxiliary.Create
-    Vulkan.Auxiliary.Create.Instance
+    Vulkan.Auxiliary.Ext.VK_EXT_debug_report

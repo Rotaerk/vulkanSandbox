@@ -2,19 +2,14 @@
 
 module Local.Foreign.Marshal.Alloc (
   module Foreign.Marshal.Alloc,
-  allocaPeek,
-  scopedMalloc
+  mallocResource
 ) where
 
 import Foreign.Marshal.Alloc
 import Foreign.Ptr
 import Foreign.Storable
-import Scope
+import ScopedResource
 
-{-# INLINE allocaPeek #-}
-allocaPeek :: Storable a => (Ptr a -> IO ()) -> IO a
-allocaPeek f = alloca \ptr -> f ptr >> peek ptr
-
-{-# INLINE scopedMalloc #-}
-scopedMalloc :: (Storable a, ImplicitScope s) => IO (Ptr a)
-scopedMalloc = scoped malloc free
+mallocResource :: Storable a => Resource (Ptr a)
+mallocResource = MkResource malloc free
+{-# INLINE mallocResource #-}

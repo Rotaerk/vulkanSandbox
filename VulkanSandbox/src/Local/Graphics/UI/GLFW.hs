@@ -4,8 +4,8 @@ module Local.Graphics.UI.GLFW (
   module Graphics.UI.GLFW,
   GLFWException(..),
   throwGLFWExceptionM,
-  initOrThrow,
-  createWindowOrThrow,
+  initializationResource,
+  windowResource,
   WindowStatus(..),
   getWindowStatus
 ) where
@@ -16,23 +16,28 @@ import Control.Monad.Extra
 import Data.IORef
 import Graphics.UI.GLFW
 import qualified Graphics.UI.GLFW as GLFW
+import ScopedResource
 import System.Clock as Clock
 
-data GLFWException = GLFWException { glfwException'functionName :: String } deriving (Eq, Show, Read)
+data GLFWException = MkGLFWException { glfwException'functionName :: String } deriving (Eq, Show, Read)
 
 instance Exception GLFWException where
-  displayException (GLFWException functionName) = "GLFWException: " ++ functionName ++ " failed."
+  displayException (MkGLFWException functionName) = "GLFWException: " ++ functionName ++ " failed."
 
 throwGLFWExceptionM :: MonadThrow m => String -> m a
-throwGLFWExceptionM = throwM . GLFWException
+throwGLFWExceptionM = throwM . MkGLFWException
 
-initOrThrow :: IO ()
-initOrThrow = unlessM GLFW.init $ throwGLFWExceptionM "init"
+initializationResource :: Resource ()
+initializationResource = MkResource (unlessM GLFW.init $ throwGLFWExceptionM "init") (const GLFW.terminate)
 
-createWindowOrThrow :: Int -> Int -> String -> Maybe Monitor -> Maybe Window -> IO GLFW.Window
-createWindowOrThrow width height title mmon mwin =
-  fromMaybeM (throwGLFWExceptionM "createWindow") $
-  GLFW.createWindow width height title mmon mwin
+windowResource :: Int -> Int -> String -> Maybe Monitor -> Maybe Window -> Resource GLFW.Window
+windowResource width height title mmon mwin =
+  MkResource
+    (
+      fromMaybeM (throwGLFWExceptionM "createWindow") $
+      GLFW.createWindow width height title mmon mwin
+    )
+    GLFW.destroyWindow
 
 data WindowStatus = WindowReady | WindowResized | WindowClosed
 

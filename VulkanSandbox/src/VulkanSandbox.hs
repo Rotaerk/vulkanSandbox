@@ -5,6 +5,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MagicHash #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Main where
@@ -23,12 +24,12 @@ import Foreign.C.String hiding (withCString)
 import Foreign.Marshal.Array
 import Foreign.Ptr
 import GHC.Foreign
-import Scope
+import GHC.Ptr
+import ScopedResource
 import System.Clock
 import System.IO
-
 import Vulkan.Auxiliary
-import Vulkan.Ext.VK_EXT_debug_report
+import Vulkan.Auxiliary.Ext.VK_EXT_debug_report
 
 main :: IO ()
 main =
@@ -43,16 +44,16 @@ main =
   )
 
 mainBody :: IO ()
-mainBody = withNewImplicitScope_ do
+mainBody = withNewImplicitScope \mainScope -> do
   GLFW.setErrorCallback . Just $ \errorCode errorMessage ->
     GLFW.throwGLFWExceptionM ("GLFW error callback: " ++ show errorCode ++ " - " ++ errorMessage)
   putStrLn "GLFW error callback set."
 
-  scoped GLFW.initOrThrow (const $ GLFW.terminate)
+  acquireInThisScope GLFW.initializationResource
   putStrLn "GLFW initialized"
 
   GLFW.windowHint (GLFW.WindowHint'ClientAPI GLFW.ClientAPI'NoAPI)
-  window <- scoped (GLFW.createWindowOrThrow 800 600 "Vulkan Sandbox" Nothing Nothing) GLFW.destroyWindow
+  window <- acquireInThisScope $ GLFW.windowResource 800 600 "Vulkan Sandbox" Nothing Nothing
   putStrLn "GLFW window created."
 
   lastWindowResizeTimeRef <- newIORef Nothing
@@ -64,7 +65,7 @@ mainBody = withNewImplicitScope_ do
   requiredInstanceExtensions <- (appInstanceExtensions ++) <$> liftIO GLFW.getRequiredInstanceExtensions
   putStrLn "Identified required vulkan extensions."
 
-  vulkanInstance <- vkaCreateScopedInstance
+  vulkanInstance <- acquireInThisScope $ vkaInstanceResource
     (
       vkaWithInstanceCreateInfoPtr VkaInstanceCreateInfo {
         withNextPtr = ($ nullPtr),
@@ -72,7 +73,7 @@ mainBody = withNewImplicitScope_ do
 
         withAppInfoPtr =
           vkaWithApplicationInfoPtr VkaApplicationInfo {
-            withAppNamePtr = withCString utf8 "Vulkan Sandbox",
+            withAppNamePtr = ($ appNamePtr),
             appVersion = VK_MAKE_VERSION 1 0 0,
             withEngineNamePtr = ($ nullPtr),
             engineVersion = 0,
@@ -80,7 +81,7 @@ mainBody = withNewImplicitScope_ do
           },
 
         withEnabledLayerNamesPtrLen = runContT do
-          (numLayers, layersPtr) <- ContT $ uncurryCPS2 (withCStringsLen utf8 validationLayers)
+          (numLayers, layersPtr) <- ContT $ uncurryCPS2 (withArrayLen validationLayers)
           return (layersPtr, fromIntegral numLayers),
 
         withEnabledExtensionNamesPtrLen = runContT do
@@ -91,6 +92,11 @@ mainBody = withNewImplicitScope_ do
     ($ nullPtr)
     ($ nullPtr)
   putStrLn "Vulkan instance created."
+
+  let ?vkInstance = vulkanInstance
+
+#ifndef ndebug
+#endif
 
   putStrLn "Render loop starting."
   fix $ \renderLoop ->
@@ -104,21 +110,21 @@ mainBody = withNewImplicitScope_ do
           GLFW.setWindowShouldClose window True
         renderLoop
 
+appNamePtr :: CString
+appNamePtr = Ptr "Vulkan Sandbox\0"#
+
 appInstanceExtensions :: [CString]
 appInstanceExtensions =
-  [
-  ]
-#ifndef NDEBUG
-  ++
-  [
-    VK_EXT_DEBUG_REPORT_EXTENSION_NAME
-  ]
+#ifndef ndebug
+  VK_EXT_DEBUG_REPORT_EXTENSION_NAME :
 #endif
+  [
+  ]
 
-validationLayers :: [String]
+validationLayers :: [CString]
 validationLayers =
-  [
-#ifndef NDEBUG
-    "VK_LAYER_KHRONOS_validation"
+#ifndef ndebug
+  Ptr "VK_LAYER_KHRONOS_validation\0"# :
 #endif
+  [
   ]

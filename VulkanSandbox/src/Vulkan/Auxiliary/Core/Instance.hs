@@ -4,25 +4,30 @@
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Vulkan.Auxiliary.Create.Instance (
+module Vulkan.Auxiliary.Core.Instance (
   VkaApplicationInfo(..),
   vkaWithApplicationInfoPtr,
   VkaInstanceCreateInfo(..),
   vkaWithInstanceCreateInfoPtr,
   vkaCreateInstance,
   vkaDestroyInstance,
-  vkaCreateScopedInstance
+  vkaInstanceResource,
+  VkaImplicitInstance,
+  vkaTheInstance,
+  vkaGetInstanceFunPtr,
+  vkaGetInstanceFunPtrUnsafe
 ) where
 
 import Local.Control.Monad.Cont
-import Local.Foreign.Marshal.Alloc
 import Local.Foreign.Storable.Offset
 
 import Control.Monad.IO.Class
 import Data.Word
 import Foreign.C.String
+import Foreign.Marshal.Alloc
 import Foreign.Ptr
-import Scope
+import Foreign.Storable
+import ScopedResource
 import Vulkan.Core_1_0
 import Vulkan.Auxiliary.Exception
 
@@ -84,9 +89,10 @@ vkaCreateInstance ::
 vkaCreateInstance withCreateInfoPtr withAllocatorPtr = evalContT $ do
   createInfoPtr <- ContT withCreateInfoPtr
   allocatorPtr <- ContT withAllocatorPtr
-  liftIO $ allocaPeek \ptr ->
+  liftIO $ alloca \ptr -> do
     vkCreateInstance createInfoPtr allocatorPtr ptr >>=
-    vkaThrowIfResultNotSuccess "vkCreateInstance"
+      vkaThrowIfResultNotSuccess "vkCreateInstance"
+    peek ptr
 
 vkaDestroyInstance ::
   VkInstance ->
@@ -96,13 +102,23 @@ vkaDestroyInstance vulkanInstance withAllocatorPtr = evalContT $ do
   allocatorPtr <- ContT withAllocatorPtr
   liftIO $ vkDestroyInstance vulkanInstance allocatorPtr
 
-vkaCreateScopedInstance ::
-  ImplicitScope s =>
+vkaInstanceResource ::
   SomeIOCPS (Ptr VkInstanceCreateInfo) ->
   SomeIOCPS (Ptr VkAllocationCallbacks) ->
   SomeIOCPS (Ptr VkAllocationCallbacks) ->
-  IO VkInstance
-vkaCreateScopedInstance withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr =
-  scoped
+  Resource VkInstance
+vkaInstanceResource withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr =
+  MkResource
     (vkaCreateInstance withCreateInfoPtr withCreateAllocatorPtr)
     (\vulkanInstance -> vkaDestroyInstance vulkanInstance withDestroyAllocatorPtr)
+
+type VkaImplicitInstance = (?vkInstance :: VkInstance)
+
+vkaTheInstance :: VkaImplicitInstance => VkInstance
+vkaTheInstance = ?vkInstance
+
+vkaGetInstanceFunPtr :: VkaImplicitInstance => VkFun a -> IO (FunPtr a)
+vkaGetInstanceFunPtr = vkGetInstanceFunPtr vkaTheInstance
+
+vkaGetInstanceFunPtrUnsafe :: VkaImplicitInstance => VkFun a -> IO (FunPtr a)
+vkaGetInstanceFunPtrUnsafe = vkGetInstanceFunPtrUnsafe vkaTheInstance
