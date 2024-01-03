@@ -11,5 +11,5 @@ import Foreign.Storable
 import ScopedResource
 
 mallocResource :: Storable a => Resource (Ptr a)
-mallocResource = MkResource malloc free
+mallocResource = Resource malloc free
 {-# INLINE mallocResource #-}

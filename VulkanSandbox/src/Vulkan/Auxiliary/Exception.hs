@@ -1,10 +1,10 @@
 module Vulkan.Auxiliary.Exception (
-  VkaResultException(..),
-  vkaThrowIfResultNotIn,
-  vkaThrowIfResultNotSuccess,
-  VkaException(..),
-  vkaThrow,
-  vkaThrowM
+  VkResultException(..),
+  throwIfVkResultNotIn,
+  throwIfVkResultNotSuccess,
+  VkException(..),
+  throwVk,
+  throwVkM
 ) where
 
 import Control.Exception
@@ -12,32 +12,32 @@ import Control.Monad
 import Control.Monad.Catch
 import Vulkan.Core_1_0
 
-data VkaResultException =
-  VkaResultException {
-    vkaResultException'functionName :: String,
-    vkaResultException'result :: VkResult
+data VkResultException =
+  VkResultException {
+    vkResultException'functionName :: String,
+    vkResultException'result :: VkResult
   } deriving (Eq, Show, Read)
 
-instance Exception VkaResultException where
-  displayException (VkaResultException functionName result) =
+instance Exception VkResultException where
+  displayException (VkResultException functionName result) =
     "Vulkan function " ++ functionName ++ " failed with result: " ++ show result
 
-vkaThrowIfResultNotIn :: [VkResult] -> String -> VkResult -> IO VkResult
-vkaThrowIfResultNotIn successResults functionName result
+throwIfVkResultNotIn :: [VkResult] -> String -> VkResult -> IO VkResult
+throwIfVkResultNotIn successResults functionName result
   | result `elem` successResults = return result
-  | otherwise = throwIO (VkaResultException functionName result)
+  | otherwise = throwIO (VkResultException functionName result)
 
-vkaThrowIfResultNotSuccess :: String -> VkResult -> IO ()
-vkaThrowIfResultNotSuccess functionName result =
-  void $ vkaThrowIfResultNotIn [VK_SUCCESS] functionName result
+throwIfVkResultNotSuccess :: String -> VkResult -> IO ()
+throwIfVkResultNotSuccess functionName result =
+  void $ throwIfVkResultNotIn [VK_SUCCESS] functionName result
 
-data VkaException = VkaException String deriving (Eq, Show, Read)
+data VkException = VkException String deriving (Eq, Show, Read)
 
-instance Exception VkaException where
-  displayException (VkaException message) = "Vulkan exception: " ++ message
+instance Exception VkException where
+  displayException (VkException message) = "Vulkan exception: " ++ message
 
-vkaThrow :: String -> a
-vkaThrow = throw . VkaException
+throwVk :: String -> a
+throwVk = throw . VkException
 
-vkaThrowM :: MonadThrow m => String -> m a
-vkaThrowM = throwM . VkaException
+throwVkM :: MonadThrow m => String -> m a
+throwVkM = throwM . VkException

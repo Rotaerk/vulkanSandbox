@@ -14,19 +14,19 @@ module Vulkan.Auxiliary.Core.Instance (
   vkInstanceResource,
   ImplicitVkInstance,
   theVkInstance,
-  getVkInstanceFunPtr,
-  getVkInstanceFunPtrUnsafe,
-  VkInstanceExtension
+  getVkInstanceFun,
+  VkInstanceExtension(..)
 ) where
 
 import Local.Control.Monad.Cont
+import Local.Foreign.Ptr
 import Local.Foreign.Storable.Offset
 
+import Control.Monad
 import Control.Monad.IO.Class
 import Data.Word
 import Foreign.C.String
 import Foreign.Marshal.Alloc
-import Foreign.Ptr
 import Foreign.Storable
 import ScopedResource
 import Vulkan.Core_1_0
@@ -92,7 +92,7 @@ createVkInstance withCreateInfoPtr withAllocatorPtr = evalContT $ do
   allocatorPtr <- ContT withAllocatorPtr
   liftIO $ alloca \ptr -> do
     vkCreateInstance createInfoPtr allocatorPtr ptr >>=
-      vkaThrowIfResultNotSuccess "vkCreateInstance"
+      throwIfVkResultNotSuccess "vkCreateInstance"
     peek ptr
 
 destroyVkInstance :: VkInstance -> SomeIOCPS (Ptr VkAllocationCallbacks) -> IO ()
@@ -105,7 +105,7 @@ vkInstanceResource ::
   SomeIOCPS (Ptr VkAllocationCallbacks) ->
   SomeIOCPS (Ptr VkAllocationCallbacks) ->
   Resource VkInstance
-vkInstanceResource withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr = MkResource
+vkInstanceResource withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr = Resource
   (createVkInstance withCreateInfoPtr withCreateAllocatorPtr)
   (\vkInstance -> destroyVkInstance vkInstance withDestroyAllocatorPtr)
 
@@ -114,11 +114,13 @@ type ImplicitVkInstance = (?vkInstance :: VkInstance)
 theVkInstance :: ImplicitVkInstance => VkInstance
 theVkInstance = ?vkInstance
 
-getVkInstanceFunPtr :: ImplicitVkInstance => VkFun a -> IO (FunPtr a)
-getVkInstanceFunPtr = vkGetInstanceFunPtr theVkInstance
-
-getVkInstanceFunPtrUnsafe :: ImplicitVkInstance => VkFun a -> IO (FunPtr a)
-getVkInstanceFunPtrUnsafe = vkGetInstanceFunPtrUnsafe theVkInstance
+getVkInstanceFun :: ImplicitVkInstance => VkFun f -> DynamicImport f -> IO f
+getVkInstanceFun vkFun@(VkFun funNameCStr) dynImport = do
+  funPtr <- vkGetInstanceFunPtr theVkInstance vkFun
+  when (funPtr == nullFunPtr) $ do
+    funName <- peekCString funNameCStr
+    throwVk ("Failed to obtain a pointer to instance function " ++ funName ++ ".")
+  return $ dynImport funPtr
 
 class VkInstanceExtension a where
-  getVkInstanceExtension :: VkInstance -> IO a
+  getVkInstanceExtension :: ImplicitVkInstance => IO a

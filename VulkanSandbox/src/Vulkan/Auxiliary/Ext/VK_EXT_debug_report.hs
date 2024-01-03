@@ -34,13 +34,22 @@ vkaCreateDebugReportCallbackEXT withCreateInfoPtr withAllocatorPtr = evalContT $
     peek ptr
 -}
 
---data VK_EXT_debug_report
+data VK_EXT_debug_report =
+  VK_EXT_debug_report {
+    vkCreateDebugReportCallbackEXT :: VkCreateDebugReportCallbackEXT,
+    vkDebugReportMessageEXT :: VkDebugReportMessageEXT,
+    vkDestroyDebugReportCallbackEXT :: VkDestroyDebugReportCallbackEXT
+  }
 
---instance VkaInstanceExtension
+instance VkInstanceExtension VK_EXT_debug_report where
+  getVkInstanceExtension = VK_EXT_debug_report <$>
+    getVkInstanceFun vkFunCreateDebugReportCallbackEXT importVkCreateDebugReportCallbackEXT <*>
+    getVkInstanceFun vkFunDebugReportMessageEXT importVkDebugReportMessageEXT <*>
+    getVkInstanceFun vkFunDestroyDebugReportCallbackEXT importVkDestroyDebugReportCallbackEXT
 
-foreign import capi "dynamic" dynVkCreateDebugReportCallbackEXT :: DynamicImport VkCreateDebugReportCallbackEXT
-foreign import capi "dynamic" dynVkDebugReportMessageEXT :: DynamicImport VkDebugReportMessageEXT
-foreign import capi "dynamic" dynVkDestroyDebugReportCallbackEXT :: DynamicImport VkDestroyDebugReportCallbackEXT
+foreign import capi "dynamic" importVkCreateDebugReportCallbackEXT :: DynamicImport VkCreateDebugReportCallbackEXT
+foreign import capi "dynamic" importVkDebugReportMessageEXT :: DynamicImport VkDebugReportMessageEXT
+foreign import capi "dynamic" importVkDestroyDebugReportCallbackEXT :: DynamicImport VkDestroyDebugReportCallbackEXT
 
 -- The structure of this create function is much like the instance one.  This can probably be generalized to something like:
 -- vkaCreate ::
