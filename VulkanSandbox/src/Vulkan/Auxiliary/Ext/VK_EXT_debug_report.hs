@@ -2,37 +2,78 @@
 {-# LANGUAGE CApiFFI #-}
 
 module Vulkan.Auxiliary.Ext.VK_EXT_debug_report (
-  module Vulkan.Ext.VK_EXT_debug_report
+  module Vulkan.Ext.VK_EXT_debug_report,
+  createVkDebugReportCallbackEXT,
+  debugReportMessageEXT,
+  destroyVkDebugReportCallbackEXT,
+  vkDebugReportCallbackEXTResource,
+  VK_EXT_debug_report(..)
 ) where
 
 import Local.Control.Monad.Cont
 import Local.Foreign.Ptr
 
 import Control.Monad.IO.Class
+import Data.Int
+import Data.Word
+import Foreign.C.String
 import Foreign.Marshal.Alloc
 import Foreign.Storable
+import ScopedResource
 import Vulkan.Auxiliary
 import Vulkan.Ext.VK_EXT_debug_report
 
--- Need a function that obtains this extension and stores its functions somewhere.
--- Then I will make that collection of functions available via an implicit param.
--- I will eventually want to generalize that into a type class with an instance per extension
--- and whose method loads that extension's functions.
-{-
-vkaCreateDebugReportCallbackEXT ::
-  VkaImplicitInstance =>
--- VkaImplicitExtDebugReport =>
+createVkDebugReportCallbackEXT ::
+  ImplicitVkInstance =>
+  VK_EXT_debug_report ->
   SomeIOCPS (Ptr VkDebugReportCallbackCreateInfoEXT) ->
   SomeIOCPS (Ptr VkAllocationCallbacks) ->
-  IO ()
-vkaCreateDebugReportCallbackEXT withCreateInfoPtr withAllocatorPtr = evalContT $ do
+  IO VkDebugReportCallbackEXT
+createVkDebugReportCallbackEXT ext withCreateInfoPtr withAllocatorPtr = evalContT $ do
   createInfoPtr <- ContT withCreateInfoPtr
   allocatorPtr <- ContT withAllocatorPtr
   liftIO $ alloca \ptr -> do
-    vkFunCreateDebugReportCallbackEXT createInfoPtr allocatorPtr ptr >>=
-      vkaThrowIfResultNotSuccess "vkFunCreateDebugReportCallbackEXT"
+    vkCreateDebugReportCallbackEXT ext theVkInstance createInfoPtr allocatorPtr ptr >>=
+      throwIfVkResultNotSuccess vkFunCreateDebugReportCallbackEXT
     peek ptr
--}
+
+debugReportMessageEXT ::
+  ImplicitVkInstance =>
+  VK_EXT_debug_report ->
+  VkDebugReportFlagsEXT ->
+  VkDebugReportObjectTypeEXT ->
+  Word64 ->
+  Word64 ->
+  Int32 ->
+  SomeIOCPS CString ->
+  SomeIOCPS CString ->
+  IO ()
+debugReportMessageEXT ext flags objectType object location messageCode withLayerPrefixPtr withMessagePtr = evalContT $ do
+  layerPrefixPtr <- ContT withLayerPrefixPtr
+  messagePtr <- ContT withMessagePtr
+  liftIO $ vkDebugReportMessageEXT ext theVkInstance
+    flags objectType object location messageCode (castPtr layerPrefixPtr) (castPtr messagePtr)
+
+destroyVkDebugReportCallbackEXT ::
+  ImplicitVkInstance =>
+  VK_EXT_debug_report ->
+  VkDebugReportCallbackEXT ->
+  SomeIOCPS (Ptr VkAllocationCallbacks) ->
+  IO ()
+destroyVkDebugReportCallbackEXT ext callback withAllocatorPtr = evalContT $ do
+  allocatorPtr <- ContT withAllocatorPtr
+  liftIO $ vkDestroyDebugReportCallbackEXT ext theVkInstance callback allocatorPtr
+
+vkDebugReportCallbackEXTResource ::
+  ImplicitVkInstance =>
+  VK_EXT_debug_report ->
+  SomeIOCPS (Ptr VkDebugReportCallbackCreateInfoEXT) ->
+  SomeIOCPS (Ptr VkAllocationCallbacks) ->
+  SomeIOCPS (Ptr VkAllocationCallbacks) ->
+  Resource VkDebugReportCallbackEXT
+vkDebugReportCallbackEXTResource ext withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr = Resource
+  (createVkDebugReportCallbackEXT ext withCreateInfoPtr withCreateAllocatorPtr)
+  (\callback -> destroyVkDebugReportCallbackEXT ext callback withDestroyAllocatorPtr)
 
 data VK_EXT_debug_report =
   VK_EXT_debug_report {

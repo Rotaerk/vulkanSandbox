@@ -92,13 +92,13 @@ createVkInstance withCreateInfoPtr withAllocatorPtr = evalContT $ do
   allocatorPtr <- ContT withAllocatorPtr
   liftIO $ alloca \ptr -> do
     vkCreateInstance createInfoPtr allocatorPtr ptr >>=
-      throwIfVkResultNotSuccess "vkCreateInstance"
+      throwIfVkResultNotSuccess vkFunCreateInstance
     peek ptr
 
 destroyVkInstance :: VkInstance -> SomeIOCPS (Ptr VkAllocationCallbacks) -> IO ()
-destroyVkInstance vulkanInstance withAllocatorPtr = evalContT $ do
+destroyVkInstance vkInstance withAllocatorPtr = evalContT $ do
   allocatorPtr <- ContT withAllocatorPtr
-  liftIO $ vkDestroyInstance vulkanInstance allocatorPtr
+  liftIO $ vkDestroyInstance vkInstance allocatorPtr
 
 vkInstanceResource ::
   SomeIOCPS (Ptr VkInstanceCreateInfo) ->

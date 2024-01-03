@@ -10,6 +10,7 @@ module Vulkan.Auxiliary.Exception (
 import Control.Exception
 import Control.Monad
 import Control.Monad.Catch
+import Foreign.C.String
 import Vulkan.Core_1_0
 
 data VkResultException =
@@ -22,14 +23,17 @@ instance Exception VkResultException where
   displayException (VkResultException functionName result) =
     "Vulkan function " ++ functionName ++ " failed with result: " ++ show result
 
-throwIfVkResultNotIn :: [VkResult] -> String -> VkResult -> IO VkResult
-throwIfVkResultNotIn successResults functionName result
+throwIfVkResultNotIn :: [VkResult] -> VkFun f -> VkResult -> IO VkResult
+throwIfVkResultNotIn successResults vkFun result
   | result `elem` successResults = return result
-  | otherwise = throwIO (VkResultException functionName result)
+  | otherwise = do
+      let (VkFun funNameCStr) = vkFun
+      functionName <- peekCString funNameCStr
+      throwIO (VkResultException functionName result)
 
-throwIfVkResultNotSuccess :: String -> VkResult -> IO ()
-throwIfVkResultNotSuccess functionName result =
-  void $ throwIfVkResultNotIn [VK_SUCCESS] functionName result
+throwIfVkResultNotSuccess :: VkFun f -> VkResult -> IO ()
+throwIfVkResultNotSuccess vkFun result =
+  void $ throwIfVkResultNotIn [VK_SUCCESS] vkFun result
 
 data VkException = VkException String deriving (Eq, Show, Read)
 
