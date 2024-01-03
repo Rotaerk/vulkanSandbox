@@ -5,17 +5,18 @@
 {-# LANGUAGE TypeApplications #-}
 
 module Vulkan.Auxiliary.Core.Instance (
-  VkaApplicationInfo(..),
-  vkaWithApplicationInfoPtr,
-  VkaInstanceCreateInfo(..),
-  vkaWithInstanceCreateInfoPtr,
-  vkaCreateInstance,
-  vkaDestroyInstance,
-  vkaInstanceResource,
-  VkaImplicitInstance,
-  vkaTheInstance,
-  vkaGetInstanceFunPtr,
-  vkaGetInstanceFunPtrUnsafe
+  VkApplicationInfoFields(..),
+  withVkApplicationInfoPtr,
+  VkInstanceCreateInfoFields(..),
+  withVkInstanceCreateInfoPtr,
+  createVkInstance,
+  destroyVkInstance,
+  vkInstanceResource,
+  ImplicitVkInstance,
+  theVkInstance,
+  getVkInstanceFunPtr,
+  getVkInstanceFunPtrUnsafe,
+  VkInstanceExtension
 ) where
 
 import Local.Control.Monad.Cont
@@ -31,8 +32,8 @@ import ScopedResource
 import Vulkan.Core_1_0
 import Vulkan.Auxiliary.Exception
 
-data VkaApplicationInfo =
-  VkaApplicationInfo {
+data VkApplicationInfoFields =
+  VkApplicationInfoFields {
     withAppNamePtr :: SomeIOCPS CString,
     appVersion :: Word32,
     withEngineNamePtr :: SomeIOCPS CString,
@@ -40,8 +41,8 @@ data VkaApplicationInfo =
     apiVersion :: Word32
   }
 
-vkaWithApplicationInfoPtr :: VkaApplicationInfo -> SomeIOCPS (Ptr VkApplicationInfo)
-vkaWithApplicationInfoPtr info = runContT do
+withVkApplicationInfoPtr :: VkApplicationInfoFields -> SomeIOCPS (Ptr VkApplicationInfo)
+withVkApplicationInfoPtr info = runContT do
   appInfoPtr <- ContT $ alloca @VkApplicationInfo
   appNamePtr <- ContT $ withAppNamePtr info
   engineNamePtr <- ContT $ withEngineNamePtr info
@@ -55,8 +56,8 @@ vkaWithApplicationInfoPtr info = runContT do
     pokePtrOffset @"apiVersion" (apiVersion info)
   return appInfoPtr
 
-data VkaInstanceCreateInfo =
-  VkaInstanceCreateInfo {
+data VkInstanceCreateInfoFields =
+  VkInstanceCreateInfoFields {
     withNextPtr :: SomeIOCPS (Ptr ()),
     flags :: VkInstanceCreateFlags,
     withAppInfoPtr :: SomeIOCPS (Ptr VkApplicationInfo),
@@ -64,8 +65,8 @@ data VkaInstanceCreateInfo =
     withEnabledExtensionNamesPtrLen :: SomeIOCPS (Ptr CString, Word32)
   }
 
-vkaWithInstanceCreateInfoPtr :: VkaInstanceCreateInfo -> SomeIOCPS (Ptr VkInstanceCreateInfo)
-vkaWithInstanceCreateInfoPtr info = runContT $ do
+withVkInstanceCreateInfoPtr :: VkInstanceCreateInfoFields -> SomeIOCPS (Ptr VkInstanceCreateInfo)
+withVkInstanceCreateInfoPtr info = runContT $ do
   createInfoPtr <- ContT $ alloca @VkInstanceCreateInfo
   nextPtr <- ContT $ withNextPtr info
   appInfoPtr <- ContT $ withAppInfoPtr info
@@ -82,11 +83,11 @@ vkaWithInstanceCreateInfoPtr info = runContT $ do
     pokePtrOffset @"ppEnabledExtensionNames" (castPtr enabledExtensionNamesPtr)
   return createInfoPtr
 
-vkaCreateInstance ::
+createVkInstance ::
   SomeIOCPS (Ptr VkInstanceCreateInfo) ->
   SomeIOCPS (Ptr VkAllocationCallbacks) ->
   IO VkInstance
-vkaCreateInstance withCreateInfoPtr withAllocatorPtr = evalContT $ do
+createVkInstance withCreateInfoPtr withAllocatorPtr = evalContT $ do
   createInfoPtr <- ContT withCreateInfoPtr
   allocatorPtr <- ContT withAllocatorPtr
   liftIO $ alloca \ptr -> do
@@ -94,31 +95,30 @@ vkaCreateInstance withCreateInfoPtr withAllocatorPtr = evalContT $ do
       vkaThrowIfResultNotSuccess "vkCreateInstance"
     peek ptr
 
-vkaDestroyInstance ::
-  VkInstance ->
-  SomeIOCPS (Ptr VkAllocationCallbacks) ->
-  IO ()
-vkaDestroyInstance vulkanInstance withAllocatorPtr = evalContT $ do
+destroyVkInstance :: VkInstance -> SomeIOCPS (Ptr VkAllocationCallbacks) -> IO ()
+destroyVkInstance vulkanInstance withAllocatorPtr = evalContT $ do
   allocatorPtr <- ContT withAllocatorPtr
   liftIO $ vkDestroyInstance vulkanInstance allocatorPtr
 
-vkaInstanceResource ::
+vkInstanceResource ::
   SomeIOCPS (Ptr VkInstanceCreateInfo) ->
   SomeIOCPS (Ptr VkAllocationCallbacks) ->
   SomeIOCPS (Ptr VkAllocationCallbacks) ->
   Resource VkInstance
-vkaInstanceResource withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr =
-  MkResource
-    (vkaCreateInstance withCreateInfoPtr withCreateAllocatorPtr)
-    (\vulkanInstance -> vkaDestroyInstance vulkanInstance withDestroyAllocatorPtr)
+vkInstanceResource withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr = MkResource
+  (createVkInstance withCreateInfoPtr withCreateAllocatorPtr)
+  (\vkInstance -> destroyVkInstance vkInstance withDestroyAllocatorPtr)
 
-type VkaImplicitInstance = (?vkInstance :: VkInstance)
+type ImplicitVkInstance = (?vkInstance :: VkInstance)
 
-vkaTheInstance :: VkaImplicitInstance => VkInstance
-vkaTheInstance = ?vkInstance
+theVkInstance :: ImplicitVkInstance => VkInstance
+theVkInstance = ?vkInstance
 
-vkaGetInstanceFunPtr :: VkaImplicitInstance => VkFun a -> IO (FunPtr a)
-vkaGetInstanceFunPtr = vkGetInstanceFunPtr vkaTheInstance
+getVkInstanceFunPtr :: ImplicitVkInstance => VkFun a -> IO (FunPtr a)
+getVkInstanceFunPtr = vkGetInstanceFunPtr theVkInstance
 
-vkaGetInstanceFunPtrUnsafe :: VkaImplicitInstance => VkFun a -> IO (FunPtr a)
-vkaGetInstanceFunPtrUnsafe = vkGetInstanceFunPtrUnsafe vkaTheInstance
+getVkInstanceFunPtrUnsafe :: ImplicitVkInstance => VkFun a -> IO (FunPtr a)
+getVkInstanceFunPtrUnsafe = vkGetInstanceFunPtrUnsafe theVkInstance
+
+class VkInstanceExtension a where
+  getVkInstanceExtension :: VkInstance -> IO a

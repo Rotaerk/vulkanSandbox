@@ -65,14 +65,14 @@ mainBody = withNewImplicitScope \mainScope -> do
   requiredInstanceExtensions <- (appInstanceExtensions ++) <$> liftIO GLFW.getRequiredInstanceExtensions
   putStrLn "Identified required vulkan extensions."
 
-  vulkanInstance <- acquireInThisScope $ vkaInstanceResource
+  vulkanInstance <- acquireInThisScope $ vkInstanceResource
     (
-      vkaWithInstanceCreateInfoPtr VkaInstanceCreateInfo {
+      withVkInstanceCreateInfoPtr VkInstanceCreateInfoFields {
         withNextPtr = ($ nullPtr),
         flags = 0,
 
         withAppInfoPtr =
-          vkaWithApplicationInfoPtr VkaApplicationInfo {
+          withVkApplicationInfoPtr VkApplicationInfoFields {
             withAppNamePtr = ($ appNamePtr),
             appVersion = VK_MAKE_VERSION 1 0 0,
             withEngineNamePtr = ($ nullPtr),

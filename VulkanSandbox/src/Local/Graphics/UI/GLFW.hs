@@ -31,13 +31,12 @@ initializationResource :: Resource ()
 initializationResource = MkResource (unlessM GLFW.init $ throwGLFWExceptionM "init") (const GLFW.terminate)
 
 windowResource :: Int -> Int -> String -> Maybe Monitor -> Maybe Window -> Resource GLFW.Window
-windowResource width height title mmon mwin =
-  MkResource
-    (
-      fromMaybeM (throwGLFWExceptionM "createWindow") $
-      GLFW.createWindow width height title mmon mwin
-    )
-    GLFW.destroyWindow
+windowResource width height title mmon mwin = MkResource
+  (
+    fromMaybeM (throwGLFWExceptionM "createWindow") $
+    GLFW.createWindow width height title mmon mwin
+  )
+  GLFW.destroyWindow
 
 data WindowStatus = WindowReady | WindowResized | WindowClosed
 

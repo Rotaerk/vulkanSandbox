@@ -34,6 +34,10 @@ vkaCreateDebugReportCallbackEXT withCreateInfoPtr withAllocatorPtr = evalContT $
     peek ptr
 -}
 
+--data VK_EXT_debug_report
+
+--instance VkaInstanceExtension
+
 foreign import capi "dynamic" dynVkCreateDebugReportCallbackEXT :: DynamicImport VkCreateDebugReportCallbackEXT
 foreign import capi "dynamic" dynVkDebugReportMessageEXT :: DynamicImport VkDebugReportMessageEXT
 foreign import capi "dynamic" dynVkDestroyDebugReportCallbackEXT :: DynamicImport VkDestroyDebugReportCallbackEXT
