@@ -44,16 +44,16 @@ main =
   )
 
 mainBody :: IO ()
-mainBody = withNewImplicitScope \mainScope -> do
+mainBody = withNewScope \mainScope -> do
   GLFW.setErrorCallback . Just $ \errorCode errorMessage ->
     GLFW.throwGLFWExceptionM ("GLFW error callback: " ++ show errorCode ++ " - " ++ errorMessage)
   putStrLn "GLFW error callback set."
 
-  acquireInThisScope GLFW.initializationResource
+  acquireIn mainScope GLFW.initializationResource
   putStrLn "GLFW initialized"
 
   GLFW.windowHint (GLFW.WindowHint'ClientAPI GLFW.ClientAPI'NoAPI)
-  window <- acquireInThisScope $ GLFW.windowResource 800 600 "Vulkan Sandbox" Nothing Nothing
+  window <- acquireIn mainScope $ GLFW.windowResource 800 600 "Vulkan Sandbox" Nothing Nothing
   putStrLn "GLFW window created."
 
   lastWindowResizeTimeRef <- newIORef Nothing
@@ -65,7 +65,7 @@ mainBody = withNewImplicitScope \mainScope -> do
   requiredInstanceExtensions <- (appInstanceExtensions ++) <$> liftIO GLFW.getRequiredInstanceExtensions
   putStrLn "Identified required vulkan extensions."
 
-  vulkanInstance <- acquireInThisScope $ vkInstanceResource
+  vulkanInstance <- acquireIn mainScope $ vkInstanceResource
     (
       withVkInstanceCreateInfoPtr VkInstanceCreateInfoFields {
         withNextPtr = ($ nullPtr),
