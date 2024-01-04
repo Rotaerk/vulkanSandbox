@@ -2,6 +2,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ImplicitParams #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Vulkan.Auxiliary.Core.Instance (
@@ -30,50 +31,50 @@ import ScopedResource
 import Vulkan.Core_1_0
 import Vulkan.Auxiliary.Exception
 
-data VkApplicationInfoFields =
+data VkApplicationInfoFields r =
   VkApplicationInfoFields {
-    withAppNamePtr :: SomeIOCPS CString,
+    withAppNamePtr :: IOCPS r CString,
     appVersion :: Word32,
-    withEngineNamePtr :: SomeIOCPS CString,
+    withEngineNamePtr :: IOCPS r CString,
     engineVersion :: Word32,
     apiVersion :: Word32
   }
 
-withVkApplicationInfoPtr :: VkApplicationInfoFields -> SomeIOCPS (Ptr VkApplicationInfo)
-withVkApplicationInfoPtr info = runContT do
+withVkApplicationInfoPtr :: VkApplicationInfoFields r -> IOCPS r (Ptr VkApplicationInfo)
+withVkApplicationInfoPtr fields = runContT do
   appInfoPtr <- ContT $ alloca @VkApplicationInfo
-  appNamePtr <- ContT $ withAppNamePtr info
-  engineNamePtr <- ContT $ withEngineNamePtr info
+  appNamePtr <- ContT fields.withAppNamePtr
+  engineNamePtr <- ContT fields.withEngineNamePtr
   liftIO $ withImplicitPtr appInfoPtr do
     pokePtrOffset @"sType" VK_STRUCTURE_TYPE_APPLICATION_INFO
     pokePtrOffset @"pNext" nullPtr
     pokePtrOffset @"pApplicationName" (castPtr appNamePtr)
-    pokePtrOffset @"applicationVersion" (appVersion info)
+    pokePtrOffset @"applicationVersion" fields.appVersion
     pokePtrOffset @"pEngineName" (castPtr engineNamePtr)
-    pokePtrOffset @"engineVersion" (engineVersion info)
-    pokePtrOffset @"apiVersion" (apiVersion info)
+    pokePtrOffset @"engineVersion" fields.engineVersion
+    pokePtrOffset @"apiVersion" fields.apiVersion
   return appInfoPtr
 
-data VkInstanceCreateInfoFields =
+data VkInstanceCreateInfoFields r =
   VkInstanceCreateInfoFields {
-    withNextPtr :: SomeIOCPS (Ptr ()),
+    withNextPtr :: IOCPS r (Ptr ()),
     flags :: VkInstanceCreateFlags,
-    withAppInfoPtr :: SomeIOCPS (Ptr VkApplicationInfo),
-    withEnabledLayerNamesPtrLen :: SomeIOCPS (Ptr CString, Word32),
-    withEnabledExtensionNamesPtrLen :: SomeIOCPS (Ptr CString, Word32)
+    withAppInfoPtr :: IOCPS r (Ptr VkApplicationInfo),
+    withEnabledLayerNamesPtrLen :: IOCPS r (Ptr CString, Word32),
+    withEnabledExtensionNamesPtrLen :: IOCPS r (Ptr CString, Word32)
   }
 
-withVkInstanceCreateInfoPtr :: VkInstanceCreateInfoFields -> SomeIOCPS (Ptr VkInstanceCreateInfo)
-withVkInstanceCreateInfoPtr info = runContT $ do
+withVkInstanceCreateInfoPtr :: VkInstanceCreateInfoFields r -> IOCPS r (Ptr VkInstanceCreateInfo)
+withVkInstanceCreateInfoPtr fields = runContT do
   createInfoPtr <- ContT $ alloca @VkInstanceCreateInfo
-  nextPtr <- ContT $ withNextPtr info
-  appInfoPtr <- ContT $ withAppInfoPtr info
-  (enabledLayerNamesPtr, enabledLayerCount) <- ContT $ withEnabledLayerNamesPtrLen info
-  (enabledExtensionNamesPtr, enabledExtensionCount) <- ContT $ withEnabledExtensionNamesPtrLen info
+  nextPtr <- ContT fields.withNextPtr
+  appInfoPtr <- ContT fields.withAppInfoPtr
+  (enabledLayerNamesPtr, enabledLayerCount) <- ContT fields.withEnabledLayerNamesPtrLen
+  (enabledExtensionNamesPtr, enabledExtensionCount) <- ContT fields.withEnabledExtensionNamesPtrLen
   liftIO $ withImplicitPtr createInfoPtr do
     pokePtrOffset @"sType" VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO
     pokePtrOffset @"pNext" nextPtr
-    pokePtrOffset @"flags" (flags info)
+    pokePtrOffset @"flags" fields.flags
     pokePtrOffset @"pApplicationInfo" appInfoPtr
     pokePtrOffset @"enabledLayerCount" enabledLayerCount
     pokePtrOffset @"ppEnabledLayerNames" (castPtr enabledLayerNamesPtr)
@@ -85,7 +86,7 @@ createVkInstance ::
   SomeIOCPS (Ptr VkInstanceCreateInfo) ->
   SomeIOCPS (Ptr VkAllocationCallbacks) ->
   IO VkInstance
-createVkInstance withCreateInfoPtr withAllocatorPtr = evalContT $ do
+createVkInstance withCreateInfoPtr withAllocatorPtr = evalContT do
   createInfoPtr <- ContT withCreateInfoPtr
   allocatorPtr <- ContT withAllocatorPtr
   liftIO $ alloca \ptr -> do
@@ -94,7 +95,7 @@ createVkInstance withCreateInfoPtr withAllocatorPtr = evalContT $ do
     peek ptr
 
 destroyVkInstance :: VkInstance -> SomeIOCPS (Ptr VkAllocationCallbacks) -> IO ()
-destroyVkInstance vkInstance withAllocatorPtr = evalContT $ do
+destroyVkInstance vkInstance withAllocatorPtr = evalContT do
   allocatorPtr <- ContT withAllocatorPtr
   liftIO $ vkDestroyInstance vkInstance allocatorPtr
 

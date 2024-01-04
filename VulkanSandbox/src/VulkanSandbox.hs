@@ -12,17 +12,18 @@ module Main where
 
 import qualified Local.Graphics.UI.GLFW as GLFW
 import Local.Control.Monad.Cont
+import Local.Foreign.Ptr
 
 import ApplicationException
 import Control.Exception
 import Control.Monad.Extra
 import Control.Monad.IO.Class
+import Data.Bits
 import Data.Function
 import Data.Functor
 import Data.IORef
-import Foreign.C.String hiding (withCString)
+import Foreign.C.String hiding (withCString, peekCString)
 import Foreign.Marshal.Array
-import Foreign.Ptr
 import GHC.Foreign
 import GHC.Ptr
 import ScopedResource
@@ -65,7 +66,7 @@ mainBody = withNewScope \mainScope -> do
   requiredInstanceExtensions <- (appInstanceExtensions ++) <$> liftIO GLFW.getRequiredInstanceExtensions
   putStrLn "Identified required vulkan extensions."
 
-  vulkanInstance <- acquireIn mainScope $ vkInstanceResource
+  vkInstance <- acquireIn mainScope $ vkInstanceResource
     (
       withVkInstanceCreateInfoPtr VkInstanceCreateInfoFields {
         withNextPtr = ($ nullPtr),
@@ -73,7 +74,7 @@ mainBody = withNewScope \mainScope -> do
 
         withAppInfoPtr =
           withVkApplicationInfoPtr VkApplicationInfoFields {
-            withAppNamePtr = ($ appNamePtr),
+            withAppNamePtr = ($ Ptr "Vulkan Sandbox"#),
             appVersion = VK_MAKE_VERSION 1 0 0,
             withEngineNamePtr = ($ nullPtr),
             engineVersion = 0,
@@ -93,9 +94,32 @@ mainBody = withNewScope \mainScope -> do
     ($ nullPtr)
   putStrLn "Vulkan instance created."
 
-  let ?vkInstance = vulkanInstance
-
 #ifndef ndebug
+  debugReportExt <- getVkInstanceExtension @VK_EXT_debug_report vkInstance
+
+  debugCallbackFunPtr <- acquireIn mainScope $ haskellFunPtrResource wrapPFN_vkDebugReportCallbackEXT
+    \flags objectType object location messageCode layerPrefixPtr messagePtr userDataPtr -> do
+      message <- peekCString utf8 (castPtr messagePtr)
+      putStrLn ("Debug report: " ++ message)
+      return VK_FALSE
+
+  void . acquireIn mainScope $ vkDebugReportCallbackEXTResource debugReportExt
+    (
+      withVkDebugReportCallbackCreateInfoEXTPtr VkDebugReportCallbackCreateInfoEXTFields {
+        withNextPtr = ($ nullPtr),
+        flags =
+          VK_DEBUG_REPORT_ERROR_BIT_EXT .|.
+          VK_DEBUG_REPORT_WARNING_BIT_EXT .|.
+          VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT .|.
+          VK_DEBUG_REPORT_INFORMATION_BIT_EXT .|.
+          VK_DEBUG_REPORT_DEBUG_BIT_EXT,
+        callbackFunPtr = debugCallbackFunPtr,
+        withUserDataPtr = ($ nullPtr)
+      }
+    )
+    ($ nullPtr)
+    ($ nullPtr)
+  putStrLn "Debug report callback registered."
 #endif
 
   putStrLn "Render loop starting."
@@ -109,9 +133,6 @@ mainBody = withNewScope \mainScope -> do
         whenM (GLFW.getKey window GLFW.Key'Escape <&> (== GLFW.KeyState'Pressed)) $
           GLFW.setWindowShouldClose window True
         renderLoop
-
-appNamePtr :: CString
-appNamePtr = Ptr "Vulkan Sandbox\0"#
 
 appInstanceExtensions :: [CString]
 appInstanceExtensions =
