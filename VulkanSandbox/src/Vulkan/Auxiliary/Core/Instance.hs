@@ -12,8 +12,6 @@ module Vulkan.Auxiliary.Core.Instance (
   createVkInstance,
   destroyVkInstance,
   vkInstanceResource,
-  ImplicitVkInstance,
-  theVkInstance,
   getVkInstanceFun,
   VkInstanceExtension(..)
 ) where
@@ -109,18 +107,13 @@ vkInstanceResource withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocator
   (createVkInstance withCreateInfoPtr withCreateAllocatorPtr)
   (\vkInstance -> destroyVkInstance vkInstance withDestroyAllocatorPtr)
 
-type ImplicitVkInstance = (?vkInstance :: VkInstance)
-
-theVkInstance :: ImplicitVkInstance => VkInstance
-theVkInstance = ?vkInstance
-
-getVkInstanceFun :: ImplicitVkInstance => VkFun f -> DynamicImport f -> IO f
-getVkInstanceFun vkFun@(VkFun funNameCStr) dynImport = do
-  funPtr <- vkGetInstanceFunPtr theVkInstance vkFun
+getVkInstanceFun :: VkInstance -> VkFun (VkInstance -> f) -> DynamicImport (VkInstance -> f) -> IO f
+getVkInstanceFun vkInstance vkFun@(VkFun funNameCStr) dynImport = do
+  funPtr <- vkGetInstanceFunPtr vkInstance vkFun
   when (funPtr == nullFunPtr) $ do
     funName <- peekCString funNameCStr
     throwVk ("Failed to obtain a pointer to instance function " ++ funName ++ ".")
-  return $ dynImport funPtr
+  return $ dynImport funPtr vkInstance
 
 class VkInstanceExtension a where
-  getVkInstanceExtension :: ImplicitVkInstance => IO a
+  getVkInstanceExtension :: VkInstance -> IO a

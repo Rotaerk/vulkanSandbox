@@ -24,7 +24,6 @@ import Vulkan.Auxiliary
 import Vulkan.Ext.VK_EXT_debug_report
 
 createVkDebugReportCallbackEXT ::
-  ImplicitVkInstance =>
   VK_EXT_debug_report ->
   SomeIOCPS (Ptr VkDebugReportCallbackCreateInfoEXT) ->
   SomeIOCPS (Ptr VkAllocationCallbacks) ->
@@ -33,12 +32,11 @@ createVkDebugReportCallbackEXT ext withCreateInfoPtr withAllocatorPtr = evalCont
   createInfoPtr <- ContT withCreateInfoPtr
   allocatorPtr <- ContT withAllocatorPtr
   liftIO $ alloca \ptr -> do
-    vkCreateDebugReportCallbackEXT ext theVkInstance createInfoPtr allocatorPtr ptr >>=
+    vkCreateDebugReportCallbackEXT ext createInfoPtr allocatorPtr ptr >>=
       throwIfVkResultNotSuccess vkFunCreateDebugReportCallbackEXT
     peek ptr
 
 debugReportMessageEXT ::
-  ImplicitVkInstance =>
   VK_EXT_debug_report ->
   VkDebugReportFlagsEXT ->
   VkDebugReportObjectTypeEXT ->
@@ -51,21 +49,19 @@ debugReportMessageEXT ::
 debugReportMessageEXT ext flags objectType object location messageCode withLayerPrefixPtr withMessagePtr = evalContT $ do
   layerPrefixPtr <- ContT withLayerPrefixPtr
   messagePtr <- ContT withMessagePtr
-  liftIO $ vkDebugReportMessageEXT ext theVkInstance
+  liftIO $ vkDebugReportMessageEXT ext
     flags objectType object location messageCode (castPtr layerPrefixPtr) (castPtr messagePtr)
 
 destroyVkDebugReportCallbackEXT ::
-  ImplicitVkInstance =>
   VK_EXT_debug_report ->
   VkDebugReportCallbackEXT ->
   SomeIOCPS (Ptr VkAllocationCallbacks) ->
   IO ()
 destroyVkDebugReportCallbackEXT ext callback withAllocatorPtr = evalContT $ do
   allocatorPtr <- ContT withAllocatorPtr
-  liftIO $ vkDestroyDebugReportCallbackEXT ext theVkInstance callback allocatorPtr
+  liftIO $ vkDestroyDebugReportCallbackEXT ext callback allocatorPtr
 
 vkDebugReportCallbackEXTResource ::
-  ImplicitVkInstance =>
   VK_EXT_debug_report ->
   SomeIOCPS (Ptr VkDebugReportCallbackCreateInfoEXT) ->
   SomeIOCPS (Ptr VkAllocationCallbacks) ->
@@ -77,29 +73,32 @@ vkDebugReportCallbackEXTResource ext withCreateInfoPtr withCreateAllocatorPtr wi
 
 data VK_EXT_debug_report =
   VK_EXT_debug_report {
-    vkCreateDebugReportCallbackEXT :: VkCreateDebugReportCallbackEXT,
-    vkDebugReportMessageEXT :: VkDebugReportMessageEXT,
-    vkDestroyDebugReportCallbackEXT :: VkDestroyDebugReportCallbackEXT
+    vkCreateDebugReportCallbackEXT ::
+      Ptr VkDebugReportCallbackCreateInfoEXT ->
+      Ptr VkAllocationCallbacks ->
+      Ptr VkDebugReportCallbackEXT ->
+      IO VkResult,
+    vkDebugReportMessageEXT ::
+      VkDebugReportFlagsEXT ->
+      VkDebugReportObjectTypeEXT ->
+      Word64 ->
+      Word64 ->
+      Int32 ->
+      Ptr Int8 ->
+      Ptr Int8 ->
+      IO (),
+    vkDestroyDebugReportCallbackEXT ::
+      VkDebugReportCallbackEXT ->
+      Ptr VkAllocationCallbacks ->
+      IO ()
   }
 
 instance VkInstanceExtension VK_EXT_debug_report where
-  getVkInstanceExtension = VK_EXT_debug_report <$>
-    getVkInstanceFun vkFunCreateDebugReportCallbackEXT importVkCreateDebugReportCallbackEXT <*>
-    getVkInstanceFun vkFunDebugReportMessageEXT importVkDebugReportMessageEXT <*>
-    getVkInstanceFun vkFunDestroyDebugReportCallbackEXT importVkDestroyDebugReportCallbackEXT
+  getVkInstanceExtension vkInstance = VK_EXT_debug_report <$>
+    getVkInstanceFun vkInstance vkFunCreateDebugReportCallbackEXT importVkCreateDebugReportCallbackEXT <*>
+    getVkInstanceFun vkInstance vkFunDebugReportMessageEXT importVkDebugReportMessageEXT <*>
+    getVkInstanceFun vkInstance vkFunDestroyDebugReportCallbackEXT importVkDestroyDebugReportCallbackEXT
 
 foreign import capi "dynamic" importVkCreateDebugReportCallbackEXT :: DynamicImport VkCreateDebugReportCallbackEXT
 foreign import capi "dynamic" importVkDebugReportMessageEXT :: DynamicImport VkDebugReportMessageEXT
 foreign import capi "dynamic" importVkDestroyDebugReportCallbackEXT :: DynamicImport VkDestroyDebugReportCallbackEXT
-
--- The structure of this create function is much like the instance one.  This can probably be generalized to something like:
--- vkaCreate ::
---   SomeIOCPS (Ptr createInfo) ->
---   SomeIOCPS (Ptr VkAllocationCallbacks) ->
---   IO (VkResult, vk)
-
--- and for ones that only have VK_SUCCESS as a success result:
--- vkaCreateSimple ::
---   SomeIOCPS (Ptr createInfo) ->
---   SomeIOCPS (Ptr VkAllocationCallbacks) ->
---   IO vkg
