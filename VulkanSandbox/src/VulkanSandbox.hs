@@ -68,12 +68,12 @@ mainBody = withNewScope \mainScope -> do
 
   vkInstance <- acquireIn mainScope $ vkInstanceResource
     (
-      withVkInstanceCreateInfoPtr VkInstanceCreateInfoFields {
+      withVkStructPtr VkInstanceCreateInfoFields {
         withNextPtr = ($ nullPtr),
         flags = 0,
 
         withAppInfoPtr =
-          withVkApplicationInfoPtr VkApplicationInfoFields {
+          withVkStructPtr VkApplicationInfoFields {
             withAppNamePtr = ($ Ptr "Vulkan Sandbox"#),
             appVersion = VK_MAKE_VERSION 1 0 0,
             withEngineNamePtr = ($ nullPtr),
@@ -105,7 +105,7 @@ mainBody = withNewScope \mainScope -> do
 
   void . acquireIn mainScope $ vkDebugReportCallbackEXTResource debugReportExt
     (
-      withVkDebugReportCallbackCreateInfoEXTPtr VkDebugReportCallbackCreateInfoEXTFields {
+      withVkStructPtr VkDebugReportCallbackCreateInfoEXTFields {
         withNextPtr = ($ nullPtr),
         flags =
           VK_DEBUG_REPORT_ERROR_BIT_EXT .|.

@@ -44,3 +44,4 @@ executable VulkanSandbox
     Vulkan.Auxiliary.Core.Instance
     Vulkan.Auxiliary.Exception
     Vulkan.Auxiliary.Ext.VK_EXT_debug_report
+    Vulkan.Auxiliary.StructFields

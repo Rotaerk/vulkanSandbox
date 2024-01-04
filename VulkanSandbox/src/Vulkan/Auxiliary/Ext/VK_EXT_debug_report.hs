@@ -8,7 +8,6 @@
 module Vulkan.Auxiliary.Ext.VK_EXT_debug_report (
   module Vulkan.Ext.VK_EXT_debug_report,
   VkDebugReportCallbackCreateInfoEXTFields(..),
-  withVkDebugReportCallbackCreateInfoEXTPtr,
   createVkDebugReportCallbackEXT,
   debugReportMessageEXT,
   destroyVkDebugReportCallbackEXT,
@@ -39,20 +38,18 @@ data VkDebugReportCallbackCreateInfoEXTFields r =
     withUserDataPtr :: IOCPS r (Ptr ())
   }
 
-withVkDebugReportCallbackCreateInfoEXTPtr ::
-  VkDebugReportCallbackCreateInfoEXTFields r ->
-  IOCPS r (Ptr VkDebugReportCallbackCreateInfoEXT)
-withVkDebugReportCallbackCreateInfoEXTPtr fields = runContT do
-  createInfoPtr <- ContT $ alloca @VkDebugReportCallbackCreateInfoEXT
-  nextPtr <- ContT fields.withNextPtr
-  userDataPtr <- ContT $ fields.withUserDataPtr
-  liftIO $ withImplicitPtr createInfoPtr do
-    pokePtrOffset @"sType" VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT
-    pokePtrOffset @"pNext" nextPtr
-    pokePtrOffset @"flags" fields.flags
-    pokePtrOffset @"pfnCallback" fields.callbackFunPtr
-    pokePtrOffset @"pUserData" userDataPtr
-  return createInfoPtr
+instance VkStructFields VkDebugReportCallbackCreateInfoEXTFields VkDebugReportCallbackCreateInfoEXT where
+  withVkStructPtr fields = runContT do
+    createInfoPtr <- ContT $ alloca @VkDebugReportCallbackCreateInfoEXT
+    nextPtr <- ContT fields.withNextPtr
+    userDataPtr <- ContT $ fields.withUserDataPtr
+    liftIO $ withImplicitPtr createInfoPtr do
+      pokePtrOffset @"sType" VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT
+      pokePtrOffset @"pNext" nextPtr
+      pokePtrOffset @"flags" fields.flags
+      pokePtrOffset @"pfnCallback" fields.callbackFunPtr
+      pokePtrOffset @"pUserData" userDataPtr
+    return createInfoPtr
 
 createVkDebugReportCallbackEXT ::
   VK_EXT_debug_report ->

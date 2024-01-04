@@ -7,9 +7,7 @@
 
 module Vulkan.Auxiliary.Core.Instance (
   VkApplicationInfoFields(..),
-  withVkApplicationInfoPtr,
   VkInstanceCreateInfoFields(..),
-  withVkInstanceCreateInfoPtr,
   createVkInstance,
   destroyVkInstance,
   vkInstanceResource,
@@ -30,6 +28,7 @@ import Foreign.Storable
 import ScopedResource
 import Vulkan.Core_1_0
 import Vulkan.Auxiliary.Exception
+import Vulkan.Auxiliary.StructFields
 
 data VkApplicationInfoFields r =
   VkApplicationInfoFields {
@@ -40,20 +39,20 @@ data VkApplicationInfoFields r =
     apiVersion :: Word32
   }
 
-withVkApplicationInfoPtr :: VkApplicationInfoFields r -> IOCPS r (Ptr VkApplicationInfo)
-withVkApplicationInfoPtr fields = runContT do
-  appInfoPtr <- ContT $ alloca @VkApplicationInfo
-  appNamePtr <- ContT fields.withAppNamePtr
-  engineNamePtr <- ContT fields.withEngineNamePtr
-  liftIO $ withImplicitPtr appInfoPtr do
-    pokePtrOffset @"sType" VK_STRUCTURE_TYPE_APPLICATION_INFO
-    pokePtrOffset @"pNext" nullPtr
-    pokePtrOffset @"pApplicationName" (castPtr appNamePtr)
-    pokePtrOffset @"applicationVersion" fields.appVersion
-    pokePtrOffset @"pEngineName" (castPtr engineNamePtr)
-    pokePtrOffset @"engineVersion" fields.engineVersion
-    pokePtrOffset @"apiVersion" fields.apiVersion
-  return appInfoPtr
+instance VkStructFields VkApplicationInfoFields VkApplicationInfo where
+  withVkStructPtr fields = runContT do
+    appInfoPtr <- ContT $ alloca @VkApplicationInfo
+    appNamePtr <- ContT fields.withAppNamePtr
+    engineNamePtr <- ContT fields.withEngineNamePtr
+    liftIO $ withImplicitPtr appInfoPtr do
+      pokePtrOffset @"sType" VK_STRUCTURE_TYPE_APPLICATION_INFO
+      pokePtrOffset @"pNext" nullPtr
+      pokePtrOffset @"pApplicationName" (castPtr appNamePtr)
+      pokePtrOffset @"applicationVersion" fields.appVersion
+      pokePtrOffset @"pEngineName" (castPtr engineNamePtr)
+      pokePtrOffset @"engineVersion" fields.engineVersion
+      pokePtrOffset @"apiVersion" fields.apiVersion
+    return appInfoPtr
 
 data VkInstanceCreateInfoFields r =
   VkInstanceCreateInfoFields {
@@ -64,23 +63,23 @@ data VkInstanceCreateInfoFields r =
     withEnabledExtensionNamesPtrLen :: IOCPS r (Ptr CString, Word32)
   }
 
-withVkInstanceCreateInfoPtr :: VkInstanceCreateInfoFields r -> IOCPS r (Ptr VkInstanceCreateInfo)
-withVkInstanceCreateInfoPtr fields = runContT do
-  createInfoPtr <- ContT $ alloca @VkInstanceCreateInfo
-  nextPtr <- ContT fields.withNextPtr
-  appInfoPtr <- ContT fields.withAppInfoPtr
-  (enabledLayerNamesPtr, enabledLayerCount) <- ContT fields.withEnabledLayerNamesPtrLen
-  (enabledExtensionNamesPtr, enabledExtensionCount) <- ContT fields.withEnabledExtensionNamesPtrLen
-  liftIO $ withImplicitPtr createInfoPtr do
-    pokePtrOffset @"sType" VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO
-    pokePtrOffset @"pNext" nextPtr
-    pokePtrOffset @"flags" fields.flags
-    pokePtrOffset @"pApplicationInfo" appInfoPtr
-    pokePtrOffset @"enabledLayerCount" enabledLayerCount
-    pokePtrOffset @"ppEnabledLayerNames" (castPtr enabledLayerNamesPtr)
-    pokePtrOffset @"enabledExtensionCount" enabledExtensionCount
-    pokePtrOffset @"ppEnabledExtensionNames" (castPtr enabledExtensionNamesPtr)
-  return createInfoPtr
+instance VkStructFields VkInstanceCreateInfoFields VkInstanceCreateInfo where
+  withVkStructPtr fields = runContT do
+    createInfoPtr <- ContT $ alloca @VkInstanceCreateInfo
+    nextPtr <- ContT fields.withNextPtr
+    appInfoPtr <- ContT fields.withAppInfoPtr
+    (enabledLayerNamesPtr, enabledLayerCount) <- ContT fields.withEnabledLayerNamesPtrLen
+    (enabledExtensionNamesPtr, enabledExtensionCount) <- ContT fields.withEnabledExtensionNamesPtrLen
+    liftIO $ withImplicitPtr createInfoPtr do
+      pokePtrOffset @"sType" VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO
+      pokePtrOffset @"pNext" nextPtr
+      pokePtrOffset @"flags" fields.flags
+      pokePtrOffset @"pApplicationInfo" appInfoPtr
+      pokePtrOffset @"enabledLayerCount" enabledLayerCount
+      pokePtrOffset @"ppEnabledLayerNames" (castPtr enabledLayerNamesPtr)
+      pokePtrOffset @"enabledExtensionCount" enabledExtensionCount
+      pokePtrOffset @"ppEnabledExtensionNames" (castPtr enabledExtensionNamesPtr)
+    return createInfoPtr
 
 createVkInstance ::
   SomeIOCPS (Ptr VkInstanceCreateInfo) ->
