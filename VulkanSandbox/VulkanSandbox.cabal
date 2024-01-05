@@ -23,6 +23,7 @@ common common
     exceptions,
     extra,
     GLFW-b,
+    kan-extensions,
     mtl >= 2.3.1,
     vulkan-raw,
     base
@@ -36,12 +37,11 @@ executable VulkanSandbox
     Local.Foreign.Ptr
     Local.Foreign.Storable.Offset
     Local.Graphics.UI.GLFW
-    Local.Control.Monad.Cont
     Local.Prelude
+    MarshalAs
     ScopedResource
     Vulkan.Auxiliary
     Vulkan.Auxiliary.Core
     Vulkan.Auxiliary.Core.Instance
     Vulkan.Auxiliary.Exception
     Vulkan.Auxiliary.Ext.VK_EXT_debug_report
-    Vulkan.Auxiliary.StructFields

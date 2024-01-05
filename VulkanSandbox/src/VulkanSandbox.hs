@@ -10,12 +10,14 @@
 
 module Main where
 
+import Local.Prelude
+
 import qualified Local.Graphics.UI.GLFW as GLFW
-import Local.Control.Monad.Cont
 import Local.Foreign.Ptr
 
 import ApplicationException
 import Control.Exception
+import Control.Monad.Codensity
 import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Data.Bits
@@ -26,6 +28,7 @@ import Foreign.C.String hiding (withCString, peekCString)
 import Foreign.Marshal.Array
 import GHC.Foreign
 import GHC.Ptr
+import MarshalAs
 import ScopedResource
 import System.Clock
 import System.IO
@@ -68,30 +71,30 @@ mainBody = withNewScope \mainScope -> do
 
   vkInstance <- acquireIn mainScope $ vkInstanceResource
     (
-      withVkStructPtr VkInstanceCreateInfoFields {
-        withNextPtr = ($ nullPtr),
+      allocaMarshal VkInstanceCreateInfoFields {
+        withNextPtr = return nullPtr,
         flags = 0,
 
         withAppInfoPtr =
-          withVkStructPtr VkApplicationInfoFields {
-            withAppNamePtr = ($ Ptr "Vulkan Sandbox"#),
+          allocaMarshal VkApplicationInfoFields {
+            withAppNamePtr = return (Ptr "Vulkan Sandbox"#),
             appVersion = VK_MAKE_VERSION 1 0 0,
-            withEngineNamePtr = ($ nullPtr),
+            withEngineNamePtr = return nullPtr,
             engineVersion = 0,
             apiVersion = VK_API_VERSION_1_0
           },
 
-        withEnabledLayerNamesPtrLen = runContT do
-          (numLayers, layersPtr) <- ContT $ withContUncurried (withArrayLen validationLayers)
+        withEnabledLayerNamesPtrLen = do
+          (numLayers, layersPtr) <- Codensity $ withContUncurried (withArrayLen validationLayers)
           return (layersPtr, fromIntegral numLayers),
 
-        withEnabledExtensionNamesPtrLen = runContT do
-          (numExtensions, extensionsPtr) <- ContT $ withContUncurried (withArrayLen requiredInstanceExtensions)
+        withEnabledExtensionNamesPtrLen = do
+          (numExtensions, extensionsPtr) <- Codensity $ withContUncurried (withArrayLen requiredInstanceExtensions)
           return (extensionsPtr, fromIntegral numExtensions)
       }
     )
-    ($ nullPtr)
-    ($ nullPtr)
+    (return nullPtr)
+    (return nullPtr)
   putStrLn "Vulkan instance created."
 
 #ifndef ndebug
@@ -105,8 +108,8 @@ mainBody = withNewScope \mainScope -> do
 
   void . acquireIn mainScope $ vkDebugReportCallbackEXTResource debugReportExt
     (
-      withVkStructPtr VkDebugReportCallbackCreateInfoEXTFields {
-        withNextPtr = ($ nullPtr),
+      allocaMarshal VkDebugReportCallbackCreateInfoEXTFields {
+        withNextPtr = return nullPtr,
         flags =
           VK_DEBUG_REPORT_ERROR_BIT_EXT .|.
           VK_DEBUG_REPORT_WARNING_BIT_EXT .|.
@@ -114,11 +117,11 @@ mainBody = withNewScope \mainScope -> do
           VK_DEBUG_REPORT_INFORMATION_BIT_EXT .|.
           VK_DEBUG_REPORT_DEBUG_BIT_EXT,
         callbackFunPtr = debugCallbackFunPtr,
-        withUserDataPtr = ($ nullPtr)
+        withUserDataPtr = return nullPtr
       }
     )
-    ($ nullPtr)
-    ($ nullPtr)
+    (return nullPtr)
+    (return nullPtr)
   putStrLn "Debug report callback registered."
 #endif
 
@@ -145,7 +148,7 @@ appInstanceExtensions =
 validationLayers :: [CString]
 validationLayers =
 #ifndef ndebug
-  Ptr "VK_LAYER_KHRONOS_validation\0"# :
+  Ptr "VK_LAYER_KHRONOS_validation"# :
 #endif
   [
   ]

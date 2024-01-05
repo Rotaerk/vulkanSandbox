@@ -15,7 +15,7 @@ module Vulkan.Auxiliary.Core.Instance (
   VkInstanceExtension(..)
 ) where
 
-import Local.Control.Monad.Cont
+import Control.Monad.Codensity
 import Local.Foreign.Ptr
 import Local.Foreign.Storable.Offset
 
@@ -25,26 +25,25 @@ import Data.Word
 import Foreign.C.String
 import Foreign.Marshal.Alloc
 import Foreign.Storable
+import MarshalAs
 import ScopedResource
 import Vulkan.Core_1_0
 import Vulkan.Auxiliary.Exception
-import Vulkan.Auxiliary.StructFields
 
-data VkApplicationInfoFields r =
+data VkApplicationInfoFields =
   VkApplicationInfoFields {
-    withAppNamePtr :: IOWith CString r,
+    withAppNamePtr :: Codensity IO CString,
     appVersion :: Word32,
-    withEngineNamePtr :: IOWith CString r,
+    withEngineNamePtr :: Codensity IO CString,
     engineVersion :: Word32,
     apiVersion :: Word32
   }
 
-instance VkStructFields VkApplicationInfoFields VkApplicationInfo where
-  withVkStructPtr fields = runContT do
-    appInfoPtr <- ContT $ alloca @VkApplicationInfo
-    appNamePtr <- ContT fields.withAppNamePtr
-    engineNamePtr <- ContT fields.withEngineNamePtr
-    liftIO $ withImplicitPtr appInfoPtr do
+instance MarshalAs VkApplicationInfo VkApplicationInfoFields where
+  marshalTo ptr fields = lowerCodensity do
+    appNamePtr <- fields.withAppNamePtr
+    engineNamePtr <- fields.withEngineNamePtr
+    liftIO $ withImplicitPtr ptr do
       pokePtrOffset @"sType" VK_STRUCTURE_TYPE_APPLICATION_INFO
       pokePtrOffset @"pNext" nullPtr
       pokePtrOffset @"pApplicationName" (castPtr appNamePtr)
@@ -52,25 +51,23 @@ instance VkStructFields VkApplicationInfoFields VkApplicationInfo where
       pokePtrOffset @"pEngineName" (castPtr engineNamePtr)
       pokePtrOffset @"engineVersion" fields.engineVersion
       pokePtrOffset @"apiVersion" fields.apiVersion
-    return appInfoPtr
 
-data VkInstanceCreateInfoFields r =
+data VkInstanceCreateInfoFields =
   VkInstanceCreateInfoFields {
-    withNextPtr :: IOWith (Ptr ()) r,
+    withNextPtr :: Codensity IO (Ptr ()),
     flags :: VkInstanceCreateFlags,
-    withAppInfoPtr :: IOWith (Ptr VkApplicationInfo) r,
-    withEnabledLayerNamesPtrLen :: IOWith (Ptr CString, Word32) r,
-    withEnabledExtensionNamesPtrLen :: IOWith (Ptr CString, Word32) r
+    withAppInfoPtr :: Codensity IO (Ptr VkApplicationInfo),
+    withEnabledLayerNamesPtrLen :: Codensity IO (Ptr CString, Word32),
+    withEnabledExtensionNamesPtrLen :: Codensity IO (Ptr CString, Word32)
   }
 
-instance VkStructFields VkInstanceCreateInfoFields VkInstanceCreateInfo where
-  withVkStructPtr fields = runContT do
-    createInfoPtr <- ContT $ alloca @VkInstanceCreateInfo
-    nextPtr <- ContT fields.withNextPtr
-    appInfoPtr <- ContT fields.withAppInfoPtr
-    (enabledLayerNamesPtr, enabledLayerCount) <- ContT fields.withEnabledLayerNamesPtrLen
-    (enabledExtensionNamesPtr, enabledExtensionCount) <- ContT fields.withEnabledExtensionNamesPtrLen
-    liftIO $ withImplicitPtr createInfoPtr do
+instance MarshalAs VkInstanceCreateInfo VkInstanceCreateInfoFields where
+  marshalTo ptr fields = lowerCodensity do
+    nextPtr <- fields.withNextPtr
+    appInfoPtr <- fields.withAppInfoPtr
+    (enabledLayerNamesPtr, enabledLayerCount) <- fields.withEnabledLayerNamesPtrLen
+    (enabledExtensionNamesPtr, enabledExtensionCount) <- fields.withEnabledExtensionNamesPtrLen
+    liftIO $ withImplicitPtr ptr do
       pokePtrOffset @"sType" VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO
       pokePtrOffset @"pNext" nextPtr
       pokePtrOffset @"flags" fields.flags
@@ -79,29 +76,28 @@ instance VkStructFields VkInstanceCreateInfoFields VkInstanceCreateInfo where
       pokePtrOffset @"ppEnabledLayerNames" (castPtr enabledLayerNamesPtr)
       pokePtrOffset @"enabledExtensionCount" enabledExtensionCount
       pokePtrOffset @"ppEnabledExtensionNames" (castPtr enabledExtensionNamesPtr)
-    return createInfoPtr
 
 createVkInstance ::
-  SomeIOWith (Ptr VkInstanceCreateInfo) ->
-  SomeIOWith (Ptr VkAllocationCallbacks) ->
+  Codensity IO (Ptr VkInstanceCreateInfo) ->
+  Codensity IO (Ptr VkAllocationCallbacks) ->
   IO VkInstance
-createVkInstance withCreateInfoPtr withAllocatorPtr = evalContT do
-  createInfoPtr <- ContT withCreateInfoPtr
-  allocatorPtr <- ContT withAllocatorPtr
+createVkInstance withCreateInfoPtr withAllocatorPtr = lowerCodensity do
+  createInfoPtr <- withCreateInfoPtr
+  allocatorPtr <- withAllocatorPtr
   liftIO $ alloca \ptr -> do
     vkCreateInstance createInfoPtr allocatorPtr ptr >>=
       throwIfVkResultNotSuccess vkFunCreateInstance
     peek ptr
 
-destroyVkInstance :: VkInstance -> SomeIOWith (Ptr VkAllocationCallbacks) -> IO ()
-destroyVkInstance vkInstance withAllocatorPtr = evalContT do
-  allocatorPtr <- ContT withAllocatorPtr
+destroyVkInstance :: VkInstance -> Codensity IO (Ptr VkAllocationCallbacks) -> IO ()
+destroyVkInstance vkInstance withAllocatorPtr = lowerCodensity do
+  allocatorPtr <- withAllocatorPtr
   liftIO $ vkDestroyInstance vkInstance allocatorPtr
 
 vkInstanceResource ::
-  SomeIOWith (Ptr VkInstanceCreateInfo) ->
-  SomeIOWith (Ptr VkAllocationCallbacks) ->
-  SomeIOWith (Ptr VkAllocationCallbacks) ->
+  Codensity IO (Ptr VkInstanceCreateInfo) ->
+  Codensity IO (Ptr VkAllocationCallbacks) ->
+  Codensity IO (Ptr VkAllocationCallbacks) ->
   Resource VkInstance
 vkInstanceResource withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr = Resource
   (createVkInstance withCreateInfoPtr withCreateAllocatorPtr)

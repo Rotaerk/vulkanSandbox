@@ -16,7 +16,7 @@ module Vulkan.Auxiliary.Ext.VK_EXT_debug_report (
   wrapPFN_vkDebugReportCallbackEXT
 ) where
 
-import Local.Control.Monad.Cont
+import Control.Monad.Codensity
 import Local.Foreign.Ptr
 import Local.Foreign.Storable.Offset
 
@@ -26,39 +26,38 @@ import Data.Word
 import Foreign.C.String
 import Foreign.Marshal.Alloc
 import Foreign.Storable
+import MarshalAs
 import ScopedResource
 import Vulkan.Auxiliary
 import Vulkan.Ext.VK_EXT_debug_report
 
-data VkDebugReportCallbackCreateInfoEXTFields r =
+data VkDebugReportCallbackCreateInfoEXTFields =
   VkDebugReportCallbackCreateInfoEXTFields {
-    withNextPtr :: IOWith (Ptr ()) r,
+    withNextPtr :: Codensity IO (Ptr ()),
     flags :: VkDebugReportFlagsEXT,
     callbackFunPtr :: FunPtr PFN_vkDebugReportCallbackEXT,
-    withUserDataPtr :: IOWith (Ptr ()) r
+    withUserDataPtr :: Codensity IO (Ptr ())
   }
 
-instance VkStructFields VkDebugReportCallbackCreateInfoEXTFields VkDebugReportCallbackCreateInfoEXT where
-  withVkStructPtr fields = runContT do
-    createInfoPtr <- ContT $ alloca @VkDebugReportCallbackCreateInfoEXT
-    nextPtr <- ContT fields.withNextPtr
-    userDataPtr <- ContT $ fields.withUserDataPtr
-    liftIO $ withImplicitPtr createInfoPtr do
+instance MarshalAs VkDebugReportCallbackCreateInfoEXT VkDebugReportCallbackCreateInfoEXTFields where
+  marshalTo ptr fields = lowerCodensity do
+    nextPtr <- fields.withNextPtr
+    userDataPtr <- fields.withUserDataPtr
+    liftIO $ withImplicitPtr ptr do
       pokePtrOffset @"sType" VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT
       pokePtrOffset @"pNext" nextPtr
       pokePtrOffset @"flags" fields.flags
       pokePtrOffset @"pfnCallback" fields.callbackFunPtr
       pokePtrOffset @"pUserData" userDataPtr
-    return createInfoPtr
 
 createVkDebugReportCallbackEXT ::
   VK_EXT_debug_report ->
-  SomeIOWith (Ptr VkDebugReportCallbackCreateInfoEXT) ->
-  SomeIOWith (Ptr VkAllocationCallbacks) ->
+  Codensity IO (Ptr VkDebugReportCallbackCreateInfoEXT) ->
+  Codensity IO (Ptr VkAllocationCallbacks) ->
   IO VkDebugReportCallbackEXT
-createVkDebugReportCallbackEXT ext withCreateInfoPtr withAllocatorPtr = evalContT do
-  createInfoPtr <- ContT withCreateInfoPtr
-  allocatorPtr <- ContT withAllocatorPtr
+createVkDebugReportCallbackEXT ext withCreateInfoPtr withAllocatorPtr = lowerCodensity do
+  createInfoPtr <- withCreateInfoPtr
+  allocatorPtr <- withAllocatorPtr
   liftIO $ alloca \ptr -> do
     vkCreateDebugReportCallbackEXT ext createInfoPtr allocatorPtr ptr >>=
       throwIfVkResultNotSuccess vkFunCreateDebugReportCallbackEXT
@@ -71,29 +70,29 @@ debugReportMessageEXT ::
   Word64 ->
   Word64 ->
   Int32 ->
-  SomeIOWith CString ->
-  SomeIOWith CString ->
+  Codensity IO CString ->
+  Codensity IO CString ->
   IO ()
-debugReportMessageEXT ext flags objectType object location messageCode withLayerPrefixPtr withMessagePtr = evalContT do
-  layerPrefixPtr <- ContT withLayerPrefixPtr
-  messagePtr <- ContT withMessagePtr
+debugReportMessageEXT ext flags objectType object location messageCode withLayerPrefixPtr withMessagePtr = lowerCodensity do
+  layerPrefixPtr <- withLayerPrefixPtr
+  messagePtr <- withMessagePtr
   liftIO $ vkDebugReportMessageEXT ext
     flags objectType object location messageCode (castPtr layerPrefixPtr) (castPtr messagePtr)
 
 destroyVkDebugReportCallbackEXT ::
   VK_EXT_debug_report ->
   VkDebugReportCallbackEXT ->
-  SomeIOWith (Ptr VkAllocationCallbacks) ->
+  Codensity IO (Ptr VkAllocationCallbacks) ->
   IO ()
-destroyVkDebugReportCallbackEXT ext callback withAllocatorPtr = evalContT do
-  allocatorPtr <- ContT withAllocatorPtr
+destroyVkDebugReportCallbackEXT ext callback withAllocatorPtr = lowerCodensity do
+  allocatorPtr <- withAllocatorPtr
   liftIO $ vkDestroyDebugReportCallbackEXT ext callback allocatorPtr
 
 vkDebugReportCallbackEXTResource ::
   VK_EXT_debug_report ->
-  SomeIOWith (Ptr VkDebugReportCallbackCreateInfoEXT) ->
-  SomeIOWith (Ptr VkAllocationCallbacks) ->
-  SomeIOWith (Ptr VkAllocationCallbacks) ->
+  Codensity IO (Ptr VkDebugReportCallbackCreateInfoEXT) ->
+  Codensity IO (Ptr VkAllocationCallbacks) ->
+  Codensity IO (Ptr VkAllocationCallbacks) ->
   Resource VkDebugReportCallbackEXT
 vkDebugReportCallbackEXTResource ext withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr = Resource
   (createVkDebugReportCallbackEXT ext withCreateInfoPtr withCreateAllocatorPtr)
