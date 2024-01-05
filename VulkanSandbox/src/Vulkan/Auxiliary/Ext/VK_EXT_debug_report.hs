@@ -32,10 +32,10 @@ import Vulkan.Ext.VK_EXT_debug_report
 
 data VkDebugReportCallbackCreateInfoEXTFields r =
   VkDebugReportCallbackCreateInfoEXTFields {
-    withNextPtr :: IOCPS r (Ptr ()),
+    withNextPtr :: IOWith (Ptr ()) r,
     flags :: VkDebugReportFlagsEXT,
     callbackFunPtr :: FunPtr PFN_vkDebugReportCallbackEXT,
-    withUserDataPtr :: IOCPS r (Ptr ())
+    withUserDataPtr :: IOWith (Ptr ()) r
   }
 
 instance VkStructFields VkDebugReportCallbackCreateInfoEXTFields VkDebugReportCallbackCreateInfoEXT where
@@ -53,8 +53,8 @@ instance VkStructFields VkDebugReportCallbackCreateInfoEXTFields VkDebugReportCa
 
 createVkDebugReportCallbackEXT ::
   VK_EXT_debug_report ->
-  SomeIOCPS (Ptr VkDebugReportCallbackCreateInfoEXT) ->
-  SomeIOCPS (Ptr VkAllocationCallbacks) ->
+  SomeIOWith (Ptr VkDebugReportCallbackCreateInfoEXT) ->
+  SomeIOWith (Ptr VkAllocationCallbacks) ->
   IO VkDebugReportCallbackEXT
 createVkDebugReportCallbackEXT ext withCreateInfoPtr withAllocatorPtr = evalContT do
   createInfoPtr <- ContT withCreateInfoPtr
@@ -71,8 +71,8 @@ debugReportMessageEXT ::
   Word64 ->
   Word64 ->
   Int32 ->
-  SomeIOCPS CString ->
-  SomeIOCPS CString ->
+  SomeIOWith CString ->
+  SomeIOWith CString ->
   IO ()
 debugReportMessageEXT ext flags objectType object location messageCode withLayerPrefixPtr withMessagePtr = evalContT do
   layerPrefixPtr <- ContT withLayerPrefixPtr
@@ -83,7 +83,7 @@ debugReportMessageEXT ext flags objectType object location messageCode withLayer
 destroyVkDebugReportCallbackEXT ::
   VK_EXT_debug_report ->
   VkDebugReportCallbackEXT ->
-  SomeIOCPS (Ptr VkAllocationCallbacks) ->
+  SomeIOWith (Ptr VkAllocationCallbacks) ->
   IO ()
 destroyVkDebugReportCallbackEXT ext callback withAllocatorPtr = evalContT do
   allocatorPtr <- ContT withAllocatorPtr
@@ -91,9 +91,9 @@ destroyVkDebugReportCallbackEXT ext callback withAllocatorPtr = evalContT do
 
 vkDebugReportCallbackEXTResource ::
   VK_EXT_debug_report ->
-  SomeIOCPS (Ptr VkDebugReportCallbackCreateInfoEXT) ->
-  SomeIOCPS (Ptr VkAllocationCallbacks) ->
-  SomeIOCPS (Ptr VkAllocationCallbacks) ->
+  SomeIOWith (Ptr VkDebugReportCallbackCreateInfoEXT) ->
+  SomeIOWith (Ptr VkAllocationCallbacks) ->
+  SomeIOWith (Ptr VkAllocationCallbacks) ->
   Resource VkDebugReportCallbackEXT
 vkDebugReportCallbackEXTResource ext withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr = Resource
   (createVkDebugReportCallbackEXT ext withCreateInfoPtr withCreateAllocatorPtr)

@@ -82,11 +82,11 @@ mainBody = withNewScope \mainScope -> do
           },
 
         withEnabledLayerNamesPtrLen = runContT do
-          (numLayers, layersPtr) <- ContT $ uncurryCPS2 (withArrayLen validationLayers)
+          (numLayers, layersPtr) <- ContT $ withContUncurried (withArrayLen validationLayers)
           return (layersPtr, fromIntegral numLayers),
 
         withEnabledExtensionNamesPtrLen = runContT do
-          (numExtensions, extensionsPtr) <- ContT $ uncurryCPS2 (withArrayLen requiredInstanceExtensions)
+          (numExtensions, extensionsPtr) <- ContT $ withContUncurried (withArrayLen requiredInstanceExtensions)
           return (extensionsPtr, fromIntegral numExtensions)
       }
     )

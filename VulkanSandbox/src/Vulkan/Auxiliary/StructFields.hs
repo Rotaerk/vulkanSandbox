@@ -9,4 +9,4 @@ import Local.Control.Monad.Cont
 import Foreign.Ptr
 
 class VkStructFields fields vk | fields -> vk where
-  withVkStructPtr :: fields r -> IOCPS r (Ptr vk)
+  withVkStructPtr :: fields r -> IOWith (Ptr vk) r

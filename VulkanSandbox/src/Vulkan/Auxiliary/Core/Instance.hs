@@ -32,9 +32,9 @@ import Vulkan.Auxiliary.StructFields
 
 data VkApplicationInfoFields r =
   VkApplicationInfoFields {
-    withAppNamePtr :: IOCPS r CString,
+    withAppNamePtr :: IOWith CString r,
     appVersion :: Word32,
-    withEngineNamePtr :: IOCPS r CString,
+    withEngineNamePtr :: IOWith CString r,
     engineVersion :: Word32,
     apiVersion :: Word32
   }
@@ -56,11 +56,11 @@ instance VkStructFields VkApplicationInfoFields VkApplicationInfo where
 
 data VkInstanceCreateInfoFields r =
   VkInstanceCreateInfoFields {
-    withNextPtr :: IOCPS r (Ptr ()),
+    withNextPtr :: IOWith (Ptr ()) r,
     flags :: VkInstanceCreateFlags,
-    withAppInfoPtr :: IOCPS r (Ptr VkApplicationInfo),
-    withEnabledLayerNamesPtrLen :: IOCPS r (Ptr CString, Word32),
-    withEnabledExtensionNamesPtrLen :: IOCPS r (Ptr CString, Word32)
+    withAppInfoPtr :: IOWith (Ptr VkApplicationInfo) r,
+    withEnabledLayerNamesPtrLen :: IOWith (Ptr CString, Word32) r,
+    withEnabledExtensionNamesPtrLen :: IOWith (Ptr CString, Word32) r
   }
 
 instance VkStructFields VkInstanceCreateInfoFields VkInstanceCreateInfo where
@@ -82,8 +82,8 @@ instance VkStructFields VkInstanceCreateInfoFields VkInstanceCreateInfo where
     return createInfoPtr
 
 createVkInstance ::
-  SomeIOCPS (Ptr VkInstanceCreateInfo) ->
-  SomeIOCPS (Ptr VkAllocationCallbacks) ->
+  SomeIOWith (Ptr VkInstanceCreateInfo) ->
+  SomeIOWith (Ptr VkAllocationCallbacks) ->
   IO VkInstance
 createVkInstance withCreateInfoPtr withAllocatorPtr = evalContT do
   createInfoPtr <- ContT withCreateInfoPtr
@@ -93,15 +93,15 @@ createVkInstance withCreateInfoPtr withAllocatorPtr = evalContT do
       throwIfVkResultNotSuccess vkFunCreateInstance
     peek ptr
 
-destroyVkInstance :: VkInstance -> SomeIOCPS (Ptr VkAllocationCallbacks) -> IO ()
+destroyVkInstance :: VkInstance -> SomeIOWith (Ptr VkAllocationCallbacks) -> IO ()
 destroyVkInstance vkInstance withAllocatorPtr = evalContT do
   allocatorPtr <- ContT withAllocatorPtr
   liftIO $ vkDestroyInstance vkInstance allocatorPtr
 
 vkInstanceResource ::
-  SomeIOCPS (Ptr VkInstanceCreateInfo) ->
-  SomeIOCPS (Ptr VkAllocationCallbacks) ->
-  SomeIOCPS (Ptr VkAllocationCallbacks) ->
+  SomeIOWith (Ptr VkInstanceCreateInfo) ->
+  SomeIOWith (Ptr VkAllocationCallbacks) ->
+  SomeIOWith (Ptr VkAllocationCallbacks) ->
   Resource VkInstance
 vkInstanceResource withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr = Resource
   (createVkInstance withCreateInfoPtr withCreateAllocatorPtr)
