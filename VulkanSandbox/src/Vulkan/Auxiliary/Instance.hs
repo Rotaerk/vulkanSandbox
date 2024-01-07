@@ -2,10 +2,10 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ImplicitParams #-}
-{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
-module Vulkan.Auxiliary.Core.Instance (
+module Vulkan.Auxiliary.Instance (
   VkApplicationInfoFields(..),
   VkInstanceCreateInfoFields(..),
   createVkInstance,
@@ -15,11 +15,11 @@ module Vulkan.Auxiliary.Core.Instance (
   VkInstanceExtension(..)
 ) where
 
-import Control.Monad.Codensity
 import Local.Foreign.Ptr
 import Local.Foreign.Storable.Offset
 
 import Control.Monad
+import Control.Monad.Codensity
 import Control.Monad.IO.Class
 import Data.Word
 import Foreign.C.String
@@ -27,50 +27,50 @@ import Foreign.Marshal.Alloc
 import Foreign.Storable
 import MarshalAs
 import ScopedResource
-import Vulkan.Core_1_0
+import Vulkan.Auxiliary.Core
 import Vulkan.Auxiliary.Exception
 
 data VkApplicationInfoFields =
   VkApplicationInfoFields {
-    withAppNamePtr :: Codensity IO CString,
-    appVersion :: Word32,
-    withEngineNamePtr :: Codensity IO CString,
-    engineVersion :: Word32,
-    apiVersion :: Word32
+    aif'withAppNamePtr :: Codensity IO CString,
+    aif'appVersion :: Word32,
+    aif'withEngineNamePtr :: Codensity IO CString,
+    aif'engineVersion :: Word32,
+    aif'apiVersion :: Word32
   }
 
 instance MarshalAs VkApplicationInfo VkApplicationInfoFields where
   marshalTo ptr fields = lowerCodensity do
-    appNamePtr <- fields.withAppNamePtr
-    engineNamePtr <- fields.withEngineNamePtr
+    appNamePtr <- aif'withAppNamePtr fields
+    engineNamePtr <- aif'withEngineNamePtr fields
     liftIO $ withImplicitPtr ptr do
       pokePtrOffset @"sType" VK_STRUCTURE_TYPE_APPLICATION_INFO
       pokePtrOffset @"pNext" nullPtr
       pokePtrOffset @"pApplicationName" (castPtr appNamePtr)
-      pokePtrOffset @"applicationVersion" fields.appVersion
+      pokePtrOffset @"applicationVersion" (aif'appVersion fields)
       pokePtrOffset @"pEngineName" (castPtr engineNamePtr)
-      pokePtrOffset @"engineVersion" fields.engineVersion
-      pokePtrOffset @"apiVersion" fields.apiVersion
+      pokePtrOffset @"engineVersion" (aif'engineVersion fields)
+      pokePtrOffset @"apiVersion" (aif'apiVersion fields)
 
 data VkInstanceCreateInfoFields =
   VkInstanceCreateInfoFields {
-    withNextPtr :: Codensity IO (Ptr ()),
-    flags :: VkInstanceCreateFlags,
-    withAppInfoPtr :: Codensity IO (Ptr VkApplicationInfo),
-    withEnabledLayerNamesPtrLen :: Codensity IO (Ptr CString, Word32),
-    withEnabledExtensionNamesPtrLen :: Codensity IO (Ptr CString, Word32)
+    icif'withNextPtr :: Codensity IO (Ptr ()),
+    icif'flags :: VkInstanceCreateFlags,
+    icif'withAppInfoPtr :: Codensity IO (Ptr VkApplicationInfo),
+    icif'withEnabledLayerNamesPtrLen :: Codensity IO (Ptr CString, Word32),
+    icif'withEnabledExtensionNamesPtrLen :: Codensity IO (Ptr CString, Word32)
   }
 
 instance MarshalAs VkInstanceCreateInfo VkInstanceCreateInfoFields where
   marshalTo ptr fields = lowerCodensity do
-    nextPtr <- fields.withNextPtr
-    appInfoPtr <- fields.withAppInfoPtr
-    (enabledLayerNamesPtr, enabledLayerCount) <- fields.withEnabledLayerNamesPtrLen
-    (enabledExtensionNamesPtr, enabledExtensionCount) <- fields.withEnabledExtensionNamesPtrLen
+    nextPtr <- icif'withNextPtr fields
+    appInfoPtr <- icif'withAppInfoPtr fields
+    (enabledLayerNamesPtr, enabledLayerCount) <- icif'withEnabledLayerNamesPtrLen fields
+    (enabledExtensionNamesPtr, enabledExtensionCount) <- icif'withEnabledExtensionNamesPtrLen fields
     liftIO $ withImplicitPtr ptr do
       pokePtrOffset @"sType" VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO
       pokePtrOffset @"pNext" nextPtr
-      pokePtrOffset @"flags" fields.flags
+      pokePtrOffset @"flags" (icif'flags fields)
       pokePtrOffset @"pApplicationInfo" appInfoPtr
       pokePtrOffset @"enabledLayerCount" enabledLayerCount
       pokePtrOffset @"ppEnabledLayerNames" (castPtr enabledLayerNamesPtr)
@@ -101,7 +101,7 @@ vkInstanceResource ::
   Resource VkInstance
 vkInstanceResource withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr = Resource
   (createVkInstance withCreateInfoPtr withCreateAllocatorPtr)
-  (\vkInstance -> destroyVkInstance vkInstance withDestroyAllocatorPtr)
+  (\vkInstance -> destroyVkInstance vkInstance withDestroyAllocatorPtr >> putStrLn "VkInstance destroyed.")
 
 getVkInstanceFun :: VkInstance -> VkFun (VkInstance -> f) -> DynamicImport (VkInstance -> f) -> IO f
 getVkInstanceFun vkInstance vkFun@(VkFun funNameCStr) dynImport = do

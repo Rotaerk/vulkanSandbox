@@ -8,9 +8,12 @@
   outputs = { self, nixpkgs }:
     let
       pkgs = import nixpkgs { system = "x86_64-linux"; };
-      hs = pkgs.haskellPackages;
+#      hs = pkgs.haskell.packages.ghc948;
+#      hs = pkgs.haskell.packages.ghc90;
+      hs = pkgs.haskell.packages.ghc98;
       VulkanSandbox = hs.callCabal2nix "VulkanSandbox" ./VulkanSandbox {};
     in {
+      inherit pkgs;
 
       packages.x86_64-linux = { inherit VulkanSandbox; };
 
@@ -19,7 +22,7 @@
         nativeBuildInputs =
           (with hs; [
             cabal-install
-            haskell-language-server
+#            haskell-language-server
           ]) ++
           (with pkgs; [
             libGL

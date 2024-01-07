@@ -6,4 +6,4 @@ allow-newer:
   storable-offset:base
 
 package vulkan-raw
-  flags: +VK_EXT_debug_report
+  flags: +VK_EXT_debug_report +ccall

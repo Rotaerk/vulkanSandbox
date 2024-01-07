@@ -2,8 +2,8 @@
 {-# LANGUAGE CApiFFI #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Vulkan.Auxiliary.Ext.VK_EXT_debug_report (
   module Vulkan.Ext.VK_EXT_debug_report,
@@ -13,6 +13,7 @@ module Vulkan.Auxiliary.Ext.VK_EXT_debug_report (
   destroyVkDebugReportCallbackEXT,
   vkDebugReportCallbackEXTResource,
   VK_EXT_debug_report(..),
+  MyPFN_vkDebugReportCallbackEXT,
   wrapPFN_vkDebugReportCallbackEXT
 ) where
 
@@ -33,21 +34,21 @@ import Vulkan.Ext.VK_EXT_debug_report
 
 data VkDebugReportCallbackCreateInfoEXTFields =
   VkDebugReportCallbackCreateInfoEXTFields {
-    withNextPtr :: Codensity IO (Ptr ()),
-    flags :: VkDebugReportFlagsEXT,
-    callbackFunPtr :: FunPtr PFN_vkDebugReportCallbackEXT,
-    withUserDataPtr :: Codensity IO (Ptr ())
+    drcci'withNextPtr :: Codensity IO (Ptr ()),
+    drcci'flags :: VkDebugReportFlagsEXT,
+    drcci'callbackFunPtr :: FunPtr PFN_vkDebugReportCallbackEXT,
+    drcci'withUserDataPtr :: Codensity IO (Ptr ())
   }
 
 instance MarshalAs VkDebugReportCallbackCreateInfoEXT VkDebugReportCallbackCreateInfoEXTFields where
   marshalTo ptr fields = lowerCodensity do
-    nextPtr <- fields.withNextPtr
-    userDataPtr <- fields.withUserDataPtr
+    nextPtr <- drcci'withNextPtr fields
+    userDataPtr <- drcci'withUserDataPtr fields
     liftIO $ withImplicitPtr ptr do
       pokePtrOffset @"sType" VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT
       pokePtrOffset @"pNext" nextPtr
-      pokePtrOffset @"flags" fields.flags
-      pokePtrOffset @"pfnCallback" fields.callbackFunPtr
+      pokePtrOffset @"flags" (drcci'flags fields)
+      pokePtrOffset @"pfnCallback" (drcci'callbackFunPtr fields)
       pokePtrOffset @"pUserData" userDataPtr
 
 createVkDebugReportCallbackEXT ::
@@ -130,4 +131,16 @@ foreign import capi "dynamic" importVkCreateDebugReportCallbackEXT :: DynamicImp
 foreign import capi "dynamic" importVkDebugReportMessageEXT :: DynamicImport VkDebugReportMessageEXT
 foreign import capi "dynamic" importVkDestroyDebugReportCallbackEXT :: DynamicImport VkDestroyDebugReportCallbackEXT
 
-foreign import ccall "wrapper" wrapPFN_vkDebugReportCallbackEXT :: DynamicWrapper PFN_vkDebugReportCallbackEXT
+type MyPFN_vkDebugReportCallbackEXT =
+  VkDebugReportFlagsEXT
+  -> VkDebugReportObjectTypeEXT
+  -> Word64
+  -> Word64
+  -> Int32
+  -> Ptr Int8
+--  -> Word64
+  -> Ptr Int8
+  -> Ptr ()
+  -> IO VkBool32
+
+foreign import ccall "wrapper" wrapPFN_vkDebugReportCallbackEXT :: DynamicWrapper MyPFN_vkDebugReportCallbackEXT

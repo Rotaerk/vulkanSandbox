@@ -3,10 +3,10 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
@@ -24,9 +24,11 @@ import Data.Bits
 import Data.Function
 import Data.Functor
 import Data.IORef
-import Foreign.C.String hiding (withCString, peekCString)
+import Foreign.C.String hiding (withCString)
 import Foreign.Marshal.Array
-import GHC.Foreign
+import Foreign.Marshal.Utils
+import Foreign.Storable
+import GHC.Foreign hiding (peekCString)
 import GHC.Ptr
 import MarshalAs
 import ScopedResource
@@ -34,6 +36,7 @@ import System.Clock
 import System.IO
 import Vulkan.Auxiliary
 import Vulkan.Auxiliary.Ext.VK_EXT_debug_report
+import Data.Word
 
 main :: IO ()
 main =
@@ -72,23 +75,23 @@ mainBody = withNewScope \mainScope -> do
   vkInstance <- acquireIn mainScope $ vkInstanceResource
     (
       allocaMarshal VkInstanceCreateInfoFields {
-        withNextPtr = return nullPtr,
-        flags = 0,
+        icif'withNextPtr = return nullPtr,
+        icif'flags = 0,
 
-        withAppInfoPtr =
+        icif'withAppInfoPtr =
           allocaMarshal VkApplicationInfoFields {
-            withAppNamePtr = return (Ptr "Vulkan Sandbox"#),
-            appVersion = VK_MAKE_VERSION 1 0 0,
-            withEngineNamePtr = return nullPtr,
-            engineVersion = 0,
-            apiVersion = VK_API_VERSION_1_0
+            aif'withAppNamePtr = return (Ptr "Vulkan Sandbox"#),
+            aif'appVersion = VK_MAKE_VERSION 1 0 0,
+            aif'withEngineNamePtr = return nullPtr,
+            aif'engineVersion = 0,
+            aif'apiVersion = VK_API_VERSION_1_0
           },
 
-        withEnabledLayerNamesPtrLen = do
+        icif'withEnabledLayerNamesPtrLen = do
           (numLayers, layersPtr) <- Codensity $ withContUncurried (withArrayLen validationLayers)
           return (layersPtr, fromIntegral numLayers),
 
-        withEnabledExtensionNamesPtrLen = do
+        icif'withEnabledExtensionNamesPtrLen = do
           (numExtensions, extensionsPtr) <- Codensity $ withContUncurried (withArrayLen requiredInstanceExtensions)
           return (extensionsPtr, fromIntegral numExtensions)
       }
@@ -97,33 +100,72 @@ mainBody = withNewScope \mainScope -> do
     (return nullPtr)
   putStrLn "Vulkan instance created."
 
-#ifndef ndebug
+#ifndef NDEBUG
   debugReportExt <- getVkInstanceExtension @VK_EXT_debug_report vkInstance
+
+  let
+    layerNamePtr = Ptr "MY LAYER"#
+    messagePtr = Ptr "MY MESSAGE"#
+    userDataPtr = Ptr "MY USER DATA"#
+
+  putStrLn $ "Layer Name Param Ptr:" ++ show layerNamePtr
+  putStrLn $ "Message Param Ptr:" ++ show messagePtr
+  putStrLn $ "User Data Ptr:" ++ show userDataPtr
 
   debugCallbackFunPtr <- acquireIn mainScope $ haskellFunPtrResource wrapPFN_vkDebugReportCallbackEXT
     \flags objectType object location messageCode layerPrefixPtr messagePtr userDataPtr -> do
-      message <- peekCString utf8 (castPtr messagePtr)
-      putStrLn ("Debug report: " ++ message)
+      layerPrefix <- peekCString (castPtr layerPrefixPtr)
+      message <- peekCString (castPtr messagePtr)
+      userDataStr <- peekCString (castPtr userDataPtr)
+      putStrLn "Debug report:"
+      putStrLn $ "Flags=" ++ show flags
+      putStrLn $ "ObjectType=" ++ show objectType
+      putStrLn $ "Object=" ++ show object
+      putStrLn $ "Location=" ++ show location
+      putStrLn $ "MessageCode=" ++ show messageCode
+      putStrLn $ "LayerPrefixPtr=" ++ show layerPrefixPtr
+      putStrLn $ "MessagePtr=" ++ show messagePtr
+      putStrLn $ "UserDataPtr=" ++ show userDataPtr
+      putStrLn ""
       return VK_FALSE
 
   void . acquireIn mainScope $ vkDebugReportCallbackEXTResource debugReportExt
     (
       allocaMarshal VkDebugReportCallbackCreateInfoEXTFields {
-        withNextPtr = return nullPtr,
-        flags =
+        drcci'withNextPtr = return nullPtr,
+        drcci'flags =
           VK_DEBUG_REPORT_ERROR_BIT_EXT .|.
           VK_DEBUG_REPORT_WARNING_BIT_EXT .|.
           VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT .|.
           VK_DEBUG_REPORT_INFORMATION_BIT_EXT .|.
           VK_DEBUG_REPORT_DEBUG_BIT_EXT,
-        callbackFunPtr = debugCallbackFunPtr,
-        withUserDataPtr = return nullPtr
+        drcci'callbackFunPtr = castFunPtr debugCallbackFunPtr,
+        drcci'withUserDataPtr = return userDataPtr
       }
     )
     (return nullPtr)
     (return nullPtr)
   putStrLn "Debug report callback registered."
+
+
+  debugReportMessageEXT debugReportExt
+    VK_DEBUG_REPORT_DEBUG_BIT_EXT
+    VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT
+    1
+    2
+    3
+    (return layerNamePtr)
+    (return messagePtr)
 #endif
+
+  {-
+  lowerCodensity $ do
+    (physDevicesArrayLen, numPhysDevices, physDevicesPtr) <-
+      withEnumeratedPhysicalDevices vkInstance $ \count -> Codensity $ allocaArray (fromIntegral count)
+    liftIO $ do
+      putStrLn $ "Phys devices array length: " ++ show physDevicesArrayLen
+      putStrLn $ "Number of phys devices: " ++ show numPhysDevices
+  -}
 
   putStrLn "Render loop starting."
   fix $ \renderLoop ->
@@ -139,7 +181,7 @@ mainBody = withNewScope \mainScope -> do
 
 appInstanceExtensions :: [CString]
 appInstanceExtensions =
-#ifndef ndebug
+#ifndef NDEBUG
   VK_EXT_DEBUG_REPORT_EXTENSION_NAME :
 #endif
   [
@@ -147,7 +189,7 @@ appInstanceExtensions =
 
 validationLayers :: [CString]
 validationLayers =
-#ifndef ndebug
+#ifndef NDEBUG
   Ptr "VK_LAYER_KHRONOS_validation"# :
 #endif
   [
