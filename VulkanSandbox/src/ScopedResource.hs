@@ -1,5 +1,4 @@
 {-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE ImplicitParams #-}
 
 module ScopedResource (
   Scope(),

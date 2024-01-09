@@ -1,10 +1,3 @@
-{-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE CApiFFI #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE TypeApplications #-}
-
 module Vulkan.Auxiliary.Ext.VK_EXT_debug_report (
   module Vulkan.Ext.VK_EXT_debug_report,
   VkDebugReportCallbackCreateInfoEXTFields(..),
@@ -16,10 +9,10 @@ module Vulkan.Auxiliary.Ext.VK_EXT_debug_report (
   wrapPFN_vkDebugReportCallbackEXT
 ) where
 
-import Control.Monad.Codensity
 import Local.Foreign.Ptr
 import Local.Foreign.Storable.Offset
 
+import Control.Monad.Codensity
 import Control.Monad.IO.Class
 import Data.Int
 import Data.Word
@@ -28,7 +21,9 @@ import Foreign.Marshal.Alloc
 import Foreign.Storable
 import MarshalAs
 import ScopedResource
-import Vulkan.Auxiliary
+import Vulkan.Auxiliary.Core
+import Vulkan.Auxiliary.Exception
+import Vulkan.Auxiliary.Instance
 import Vulkan.Ext.VK_EXT_debug_report
 
 data VkDebugReportCallbackCreateInfoEXTFields =
@@ -43,7 +38,7 @@ instance MarshalAs VkDebugReportCallbackCreateInfoEXT VkDebugReportCallbackCreat
   marshalTo ptr fields = lowerCodensity do
     nextPtr <- fields.withNextPtr
     userDataPtr <- fields.withUserDataPtr
-    liftIO $ withImplicitPtr ptr do
+    liftIO $ runWithPtr ptr do
       pokePtrOffset @"sType" VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT
       pokePtrOffset @"pNext" nextPtr
       pokePtrOffset @"flags" fields.flags

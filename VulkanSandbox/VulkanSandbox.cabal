@@ -18,6 +18,14 @@ common common
   hs-source-dirs: src
   ghc-options: -threaded -Wall -Wno-name-shadowing -Wno-unused-matches -fno-ignore-asserts
   default-language: GHC2021
+  default-extensions:
+    BlockArguments
+    CApiFFI
+    CPP
+    DataKinds
+    DuplicateRecordFields
+    OverloadedRecordDot
+    TypeApplications
   build-depends:
     clock,
     exceptions,
@@ -45,3 +53,4 @@ executable VulkanSandbox
     Vulkan.Auxiliary.Instance
     Vulkan.Auxiliary.Exception
     Vulkan.Auxiliary.Ext.VK_EXT_debug_report
+    Vulkan.Auxiliary.Ext.VK_EXT_debug_utils
