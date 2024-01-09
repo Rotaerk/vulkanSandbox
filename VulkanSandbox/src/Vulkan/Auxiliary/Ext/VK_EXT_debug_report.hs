@@ -17,6 +17,7 @@ import Control.Monad.IO.Class
 import Data.Int
 import Data.Word
 import Foreign.C.String
+import Foreign.C.Types
 import Foreign.Marshal.Alloc
 import Foreign.Storable
 import MarshalAs
@@ -38,7 +39,7 @@ instance MarshalAs VkDebugReportCallbackCreateInfoEXT VkDebugReportCallbackCreat
   marshalTo ptr fields = lowerCodensity do
     nextPtr <- fields.withNextPtr
     userDataPtr <- fields.withUserDataPtr
-    liftIO $ runWithPtr ptr do
+    liftIO $ runForPtr ptr do
       pokePtrOffset @"sType" VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT
       pokePtrOffset @"pNext" nextPtr
       pokePtrOffset @"flags" fields.flags
@@ -63,12 +64,12 @@ debugReportMessageEXT ::
   VkDebugReportFlagsEXT ->
   VkDebugReportObjectTypeEXT ->
   Word64 ->
-  Word64 ->
+  CSize ->
   Int32 ->
   Codensity IO CString ->
   Codensity IO CString ->
   IO ()
-debugReportMessageEXT ext flags objectType object location messageCode withLayerPrefixPtr withMessagePtr = lowerCodensity do
+debugReportMessageEXT ext flags objectType object (CSize location) messageCode withLayerPrefixPtr withMessagePtr = lowerCodensity do
   layerPrefixPtr <- withLayerPrefixPtr
   messagePtr <- withMessagePtr
   liftIO $ vkDebugReportMessageEXT ext

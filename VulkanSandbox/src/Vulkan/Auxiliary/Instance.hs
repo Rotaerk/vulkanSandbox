@@ -42,7 +42,7 @@ instance MarshalAs VkApplicationInfo VkApplicationInfoFields where
   marshalTo ptr fields = lowerCodensity do
     appNamePtr <- fields.withAppNamePtr
     engineNamePtr <- fields.withEngineNamePtr
-    liftIO $ runWithPtr ptr do
+    liftIO $ runForPtr ptr do
       pokePtrOffset @"sType" VK_STRUCTURE_TYPE_APPLICATION_INFO
       pokePtrOffset @"pNext" nullPtr
       pokePtrOffset @"pApplicationName" (castPtr appNamePtr)
@@ -66,7 +66,7 @@ instance MarshalAs VkInstanceCreateInfo VkInstanceCreateInfoFields where
     appInfoPtr <- fields.withAppInfoPtr
     (enabledLayerNamesPtr, enabledLayerCount) <- fields.withEnabledLayerNamesPtrLen
     (enabledExtensionNamesPtr, enabledExtensionCount) <- fields.withEnabledExtensionNamesPtrLen
-    liftIO $ runWithPtr ptr do
+    liftIO $ runForPtr ptr do
       pokePtrOffset @"sType" VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO
       pokePtrOffset @"pNext" nextPtr
       pokePtrOffset @"flags" fields.flags

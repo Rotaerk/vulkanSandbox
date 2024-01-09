@@ -2,7 +2,7 @@
 
 module Local.Foreign.Storable.Offset (
   module Foreign.Storable.Offset,
-  runWithPtr,
+  runForPtr,
   pokePtrOffset,
   pokePtrArrayOffset
 ) where
@@ -16,8 +16,8 @@ import Foreign.Storable
 import Foreign.Storable.Offset
 import GHC.Records
 
-runWithPtr :: Ptr r -> ReaderT (Ptr r) IO a -> IO a
-runWithPtr ptr reader = runReaderT reader ptr
+runForPtr :: Ptr r -> ReaderT (Ptr r) IO a -> IO a
+runForPtr ptr reader = runReaderT reader ptr
 
 pokePtrOffset ::
   forall x r a.
