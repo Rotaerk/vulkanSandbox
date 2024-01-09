@@ -19,7 +19,8 @@ import Vulkan.Ext.VK_EXT_debug_utils
 
 data VkDebugUtilsLabelEXTFields =
   VkDebugUtilsLabelEXTFields {
-    withLabelNamePtr :: Codensity IO CString
+    withLabelNamePtr :: Codensity IO CString,
+    color :: (Float, Float, Float, Float)
   }
 
 instance MarshalAs VkDebugUtilsLabelEXT VkDebugUtilsLabelEXTFields where
@@ -29,6 +30,7 @@ instance MarshalAs VkDebugUtilsLabelEXT VkDebugUtilsLabelEXTFields where
       pokePtrOffset @"sType" VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT
       pokePtrOffset @"pNext" nullPtr
       pokePtrOffset @"pLabelName" (castPtr labelNamePtr)
+      pokePtrArrayOffset @"color" (let (r,g,b,a) = fields.color in [r,g,b,a])
 
 data VkDebugUtilsMessengerCreateInfoEXTFields =
   VkDebugUtilsMessengerCreateInfoEXTFields {

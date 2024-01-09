@@ -41,6 +41,7 @@ executable VulkanSandbox
   main-is: VulkanSandbox.hs
   other-modules:
     ApplicationException
+    Local.Control.Monad
     Local.Foreign.Marshal.Alloc
     Local.Foreign.Ptr
     Local.Foreign.Storable.Offset
