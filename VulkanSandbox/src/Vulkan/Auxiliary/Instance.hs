@@ -5,7 +5,7 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Vulkan.Auxiliary.Core.Instance (
+module Vulkan.Auxiliary.Instance (
   VkApplicationInfoFields(..),
   VkInstanceCreateInfoFields(..),
   createVkInstance,
