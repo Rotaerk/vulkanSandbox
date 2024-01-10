@@ -5,13 +5,13 @@
 {-# LANGUAGE TypeApplications #-}
 
 module Vulkan.Auxiliary.Instance (
-  VkApplicationInfoFields(..),
-  VkInstanceCreateInfoFields(..),
-  createVkInstance,
-  destroyVkInstance,
-  vkInstanceResource,
-  getVkInstanceFun,
-  VkInstanceExtension(..)
+  ApplicationInfo(..),
+  InstanceCreateInfo(..),
+  createInstance,
+  destroyInstance,
+  instanceResource,
+  getInstanceFun,
+  InstanceExtension(..)
 ) where
 
 import Control.Monad.Codensity
@@ -29,8 +29,8 @@ import ScopedResource
 import Vulkan.Core_1_0
 import Vulkan.Auxiliary.Exception
 
-data VkApplicationInfoFields =
-  VkApplicationInfoFields {
+data ApplicationInfo =
+  ApplicationInfo {
     withAppNamePtr :: Codensity IO CString,
     appVersion :: Word32,
     withEngineNamePtr :: Codensity IO CString,
@@ -38,7 +38,7 @@ data VkApplicationInfoFields =
     apiVersion :: Word32
   }
 
-instance MarshalAs VkApplicationInfo VkApplicationInfoFields where
+instance MarshalAs VkApplicationInfo ApplicationInfo where
   marshalTo ptr fields = lowerCodensity do
     appNamePtr <- fields.withAppNamePtr
     engineNamePtr <- fields.withEngineNamePtr
@@ -51,8 +51,8 @@ instance MarshalAs VkApplicationInfo VkApplicationInfoFields where
       pokePtrOffset @"engineVersion" fields.engineVersion
       pokePtrOffset @"apiVersion" fields.apiVersion
 
-data VkInstanceCreateInfoFields =
-  VkInstanceCreateInfoFields {
+data InstanceCreateInfo =
+  InstanceCreateInfo {
     withNextPtr :: Codensity IO (Ptr ()),
     flags :: VkInstanceCreateFlags,
     withAppInfoPtr :: Codensity IO (Ptr VkApplicationInfo),
@@ -60,7 +60,7 @@ data VkInstanceCreateInfoFields =
     withEnabledExtensionNamesPtrLen :: Codensity IO (Ptr CString, Word32)
   }
 
-instance MarshalAs VkInstanceCreateInfo VkInstanceCreateInfoFields where
+instance MarshalAs VkInstanceCreateInfo InstanceCreateInfo where
   marshalTo ptr fields = lowerCodensity do
     nextPtr <- fields.withNextPtr
     appInfoPtr <- fields.withAppInfoPtr
@@ -76,11 +76,11 @@ instance MarshalAs VkInstanceCreateInfo VkInstanceCreateInfoFields where
       pokePtrOffset @"enabledExtensionCount" enabledExtensionCount
       pokePtrOffset @"ppEnabledExtensionNames" (castPtr enabledExtensionNamesPtr)
 
-createVkInstance ::
+createInstance ::
   Codensity IO (Ptr VkInstanceCreateInfo) ->
   Codensity IO (Ptr VkAllocationCallbacks) ->
   IO VkInstance
-createVkInstance withCreateInfoPtr withAllocatorPtr = lowerCodensity do
+createInstance withCreateInfoPtr withAllocatorPtr = lowerCodensity do
   createInfoPtr <- withCreateInfoPtr
   allocatorPtr <- withAllocatorPtr
   liftIO $ alloca \ptr -> do
@@ -88,27 +88,27 @@ createVkInstance withCreateInfoPtr withAllocatorPtr = lowerCodensity do
       throwIfVkResultNotSuccess vkFunCreateInstance
     peek ptr
 
-destroyVkInstance :: VkInstance -> Codensity IO (Ptr VkAllocationCallbacks) -> IO ()
-destroyVkInstance vkInstance withAllocatorPtr = lowerCodensity do
+destroyInstance :: VkInstance -> Codensity IO (Ptr VkAllocationCallbacks) -> IO ()
+destroyInstance vkInstance withAllocatorPtr = lowerCodensity do
   allocatorPtr <- withAllocatorPtr
   liftIO $ vkDestroyInstance vkInstance allocatorPtr
 
-vkInstanceResource ::
+instanceResource ::
   Codensity IO (Ptr VkInstanceCreateInfo) ->
   Codensity IO (Ptr VkAllocationCallbacks) ->
   Codensity IO (Ptr VkAllocationCallbacks) ->
   Resource VkInstance
-vkInstanceResource withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr = Resource
-  (createVkInstance withCreateInfoPtr withCreateAllocatorPtr)
-  (\vkInstance -> destroyVkInstance vkInstance withDestroyAllocatorPtr)
+instanceResource withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr = Resource
+  (createInstance withCreateInfoPtr withCreateAllocatorPtr)
+  (\vkInstance -> destroyInstance vkInstance withDestroyAllocatorPtr)
 
-getVkInstanceFun :: VkInstance -> VkFun (VkInstance -> f) -> DynamicImport (VkInstance -> f) -> IO f
-getVkInstanceFun vkInstance vkFun@(VkFun funNameCStr) dynImport = do
+getInstanceFun :: VkInstance -> VkFun f -> DynamicImport f -> IO f
+getInstanceFun vkInstance vkFun@(VkFun funNameCStr) dynImport = do
   funPtr <- vkGetInstanceFunPtr vkInstance vkFun
   when (funPtr == nullFunPtr) $ do
     funName <- peekCString funNameCStr
     throwVk ("Failed to obtain a pointer to instance function " ++ funName ++ ".")
-  return $ dynImport funPtr vkInstance
+  return $ dynImport funPtr
 
-class VkInstanceExtension a where
-  getVkInstanceExtension :: VkInstance -> IO a
+class InstanceExtension a where
+  getInstanceExtension :: VkInstance -> IO a

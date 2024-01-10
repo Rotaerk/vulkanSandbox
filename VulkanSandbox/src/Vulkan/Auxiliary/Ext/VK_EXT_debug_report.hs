@@ -1,12 +1,12 @@
 module Vulkan.Auxiliary.Ext.VK_EXT_debug_report (
   module Vulkan.Ext.VK_EXT_debug_report,
-  VkDebugReportCallbackCreateInfoEXTFields(..),
-  createVkDebugReportCallbackEXT,
-  debugReportMessageEXT,
-  destroyVkDebugReportCallbackEXT,
-  vkDebugReportCallbackEXTResource,
   VK_EXT_debug_report(..),
-  wrapPFN_vkDebugReportCallbackEXT
+  wrapPFN_vkDebugReportCallbackEXT,
+  DebugReportCallbackCreateInfo(..),
+  createDebugReportCallback,
+  debugReportMessage,
+  destroyDebugReportCallback,
+  debugReportCallbackResource,
 ) where
 
 import Local.Foreign.Ptr
@@ -27,15 +27,34 @@ import Vulkan.Auxiliary.Exception
 import Vulkan.Auxiliary.Instance
 import Vulkan.Ext.VK_EXT_debug_report
 
-data VkDebugReportCallbackCreateInfoEXTFields =
-  VkDebugReportCallbackCreateInfoEXTFields {
+data VK_EXT_debug_report =
+  VK_EXT_debug_report {
+    vkCreateDebugReportCallbackEXT :: VkCreateDebugReportCallbackEXT,
+    vkDebugReportMessageEXT :: VkDebugReportMessageEXT,
+    vkDestroyDebugReportCallbackEXT :: VkDestroyDebugReportCallbackEXT
+  }
+
+instance InstanceExtension VK_EXT_debug_report where
+  getInstanceExtension vkInstance = VK_EXT_debug_report <$>
+    getInstanceFun vkInstance vkFunCreateDebugReportCallbackEXT importVkCreateDebugReportCallbackEXT <*>
+    getInstanceFun vkInstance vkFunDebugReportMessageEXT importVkDebugReportMessageEXT <*>
+    getInstanceFun vkInstance vkFunDestroyDebugReportCallbackEXT importVkDestroyDebugReportCallbackEXT
+
+foreign import capi "dynamic" importVkCreateDebugReportCallbackEXT :: DynamicImport VkCreateDebugReportCallbackEXT
+foreign import capi "dynamic" importVkDebugReportMessageEXT :: DynamicImport VkDebugReportMessageEXT
+foreign import capi "dynamic" importVkDestroyDebugReportCallbackEXT :: DynamicImport VkDestroyDebugReportCallbackEXT
+
+foreign import ccall "wrapper" wrapPFN_vkDebugReportCallbackEXT :: DynamicWrapper PFN_vkDebugReportCallbackEXT
+
+data DebugReportCallbackCreateInfo =
+  DebugReportCallbackCreateInfo {
     withNextPtr :: Codensity IO (Ptr ()),
     flags :: VkDebugReportFlagsEXT,
     callbackFunPtr :: FunPtr PFN_vkDebugReportCallbackEXT,
     withUserDataPtr :: Codensity IO (Ptr ())
   }
 
-instance MarshalAs VkDebugReportCallbackCreateInfoEXT VkDebugReportCallbackCreateInfoEXTFields where
+instance MarshalAs VkDebugReportCallbackCreateInfoEXT DebugReportCallbackCreateInfo where
   marshalTo ptr fields = lowerCodensity do
     nextPtr <- fields.withNextPtr
     userDataPtr <- fields.withUserDataPtr
@@ -46,21 +65,24 @@ instance MarshalAs VkDebugReportCallbackCreateInfoEXT VkDebugReportCallbackCreat
       pokePtrOffset @"pfnCallback" fields.callbackFunPtr
       pokePtrOffset @"pUserData" userDataPtr
 
-createVkDebugReportCallbackEXT ::
+createDebugReportCallback ::
   VK_EXT_debug_report ->
+  VkInstance ->
   Codensity IO (Ptr VkDebugReportCallbackCreateInfoEXT) ->
   Codensity IO (Ptr VkAllocationCallbacks) ->
   IO VkDebugReportCallbackEXT
-createVkDebugReportCallbackEXT ext withCreateInfoPtr withAllocatorPtr = lowerCodensity do
+createDebugReportCallback ext vkInstance withCreateInfoPtr withAllocatorPtr = lowerCodensity do
   createInfoPtr <- withCreateInfoPtr
   allocatorPtr <- withAllocatorPtr
-  liftIO $ alloca \ptr -> do
-    vkCreateDebugReportCallbackEXT ext createInfoPtr allocatorPtr ptr >>=
+  ptr <- Codensity alloca
+  liftIO do
+    vkCreateDebugReportCallbackEXT ext vkInstance createInfoPtr allocatorPtr ptr >>=
       throwIfVkResultNotSuccess vkFunCreateDebugReportCallbackEXT
     peek ptr
 
-debugReportMessageEXT ::
+debugReportMessage ::
   VK_EXT_debug_report ->
+  VkInstance ->
   VkDebugReportFlagsEXT ->
   VkDebugReportObjectTypeEXT ->
   Word64 ->
@@ -69,61 +91,29 @@ debugReportMessageEXT ::
   Codensity IO CString ->
   Codensity IO CString ->
   IO ()
-debugReportMessageEXT ext flags objectType object (CSize location) messageCode withLayerPrefixPtr withMessagePtr = lowerCodensity do
+debugReportMessage ext vkInstance flags objectType object (CSize location) messageCode withLayerPrefixPtr withMessagePtr = lowerCodensity do
   layerPrefixPtr <- withLayerPrefixPtr
   messagePtr <- withMessagePtr
-  liftIO $ vkDebugReportMessageEXT ext
+  liftIO $ vkDebugReportMessageEXT ext vkInstance
     flags objectType object location messageCode (castPtr layerPrefixPtr) (castPtr messagePtr)
 
-destroyVkDebugReportCallbackEXT ::
+destroyDebugReportCallback ::
   VK_EXT_debug_report ->
+  VkInstance ->
   VkDebugReportCallbackEXT ->
   Codensity IO (Ptr VkAllocationCallbacks) ->
   IO ()
-destroyVkDebugReportCallbackEXT ext callback withAllocatorPtr = lowerCodensity do
+destroyDebugReportCallback ext vkInstance callback withAllocatorPtr = lowerCodensity do
   allocatorPtr <- withAllocatorPtr
-  liftIO $ vkDestroyDebugReportCallbackEXT ext callback allocatorPtr
+  liftIO $ vkDestroyDebugReportCallbackEXT ext vkInstance callback allocatorPtr
 
-vkDebugReportCallbackEXTResource ::
+debugReportCallbackResource ::
   VK_EXT_debug_report ->
+  VkInstance ->
   Codensity IO (Ptr VkDebugReportCallbackCreateInfoEXT) ->
   Codensity IO (Ptr VkAllocationCallbacks) ->
   Codensity IO (Ptr VkAllocationCallbacks) ->
   Resource VkDebugReportCallbackEXT
-vkDebugReportCallbackEXTResource ext withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr = Resource
-  (createVkDebugReportCallbackEXT ext withCreateInfoPtr withCreateAllocatorPtr)
-  (\callback -> destroyVkDebugReportCallbackEXT ext callback withDestroyAllocatorPtr)
-
-data VK_EXT_debug_report =
-  VK_EXT_debug_report {
-    vkCreateDebugReportCallbackEXT ::
-      Ptr VkDebugReportCallbackCreateInfoEXT ->
-      Ptr VkAllocationCallbacks ->
-      Ptr VkDebugReportCallbackEXT ->
-      IO VkResult,
-    vkDebugReportMessageEXT ::
-      VkDebugReportFlagsEXT ->
-      VkDebugReportObjectTypeEXT ->
-      Word64 ->
-      Word64 ->
-      Int32 ->
-      Ptr Int8 ->
-      Ptr Int8 ->
-      IO (),
-    vkDestroyDebugReportCallbackEXT ::
-      VkDebugReportCallbackEXT ->
-      Ptr VkAllocationCallbacks ->
-      IO ()
-  }
-
-instance VkInstanceExtension VK_EXT_debug_report where
-  getVkInstanceExtension vkInstance = VK_EXT_debug_report <$>
-    getVkInstanceFun vkInstance vkFunCreateDebugReportCallbackEXT importVkCreateDebugReportCallbackEXT <*>
-    getVkInstanceFun vkInstance vkFunDebugReportMessageEXT importVkDebugReportMessageEXT <*>
-    getVkInstanceFun vkInstance vkFunDestroyDebugReportCallbackEXT importVkDestroyDebugReportCallbackEXT
-
-foreign import capi "dynamic" importVkCreateDebugReportCallbackEXT :: DynamicImport VkCreateDebugReportCallbackEXT
-foreign import capi "dynamic" importVkDebugReportMessageEXT :: DynamicImport VkDebugReportMessageEXT
-foreign import capi "dynamic" importVkDestroyDebugReportCallbackEXT :: DynamicImport VkDestroyDebugReportCallbackEXT
-
-foreign import ccall "wrapper" wrapPFN_vkDebugReportCallbackEXT :: DynamicWrapper PFN_vkDebugReportCallbackEXT
+debugReportCallbackResource ext vkInstance withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr = Resource
+  (createDebugReportCallback ext vkInstance withCreateInfoPtr withCreateAllocatorPtr)
+  (\callback -> destroyDebugReportCallback ext vkInstance callback withDestroyAllocatorPtr)

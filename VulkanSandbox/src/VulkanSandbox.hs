@@ -68,14 +68,14 @@ mainBody = withNewScope \mainScope -> do
   requiredInstanceExtensions <- (appInstanceExtensions ++) <$> liftIO GLFW.getRequiredInstanceExtensions
   putStrLn "Identified required vulkan extensions."
 
-  vkInstance <- acquireIn mainScope $ vkInstanceResource
+  vkInstance <- acquireIn mainScope $ instanceResource
     (
-      allocaMarshal VkInstanceCreateInfoFields {
+      allocaMarshal InstanceCreateInfo {
         withNextPtr = return nullPtr,
         flags = 0,
 
         withAppInfoPtr =
-          allocaMarshal VkApplicationInfoFields {
+          allocaMarshal ApplicationInfo {
             withAppNamePtr = return (Ptr "Vulkan Sandbox"#),
             appVersion = VK_MAKE_VERSION 1 0 0,
             withEngineNamePtr = return nullPtr,
@@ -97,7 +97,7 @@ mainBody = withNewScope \mainScope -> do
   putStrLn "Vulkan instance created."
 
 #ifndef ndebug
-  debugReportExt <- getVkInstanceExtension @VK_EXT_debug_report vkInstance
+  debugReportExt <- getInstanceExtension @VK_EXT_debug_report vkInstance
 
   debugCallbackFunPtr <- acquireIn mainScope $ haskellFunPtrResource wrapPFN_vkDebugReportCallbackEXT
     \flags objectType object location messageCode layerPrefixPtr messagePtr userDataPtr -> do
@@ -105,9 +105,9 @@ mainBody = withNewScope \mainScope -> do
       putStrLn ("Debug report: " ++ message)
       return VK_FALSE
 
-  void . acquireIn mainScope $ vkDebugReportCallbackEXTResource debugReportExt
+  void . acquireIn mainScope $ debugReportCallbackResource debugReportExt vkInstance
     (
-      allocaMarshal VkDebugReportCallbackCreateInfoEXTFields {
+      allocaMarshal DebugReportCallbackCreateInfo {
         withNextPtr = return nullPtr,
         flags =
           VK_DEBUG_REPORT_ERROR_BIT_EXT .|.
