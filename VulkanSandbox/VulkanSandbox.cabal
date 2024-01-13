@@ -51,7 +51,10 @@ executable VulkanSandbox
     ScopedResource
     Vulkan.Auxiliary
     Vulkan.Auxiliary.Core
-    Vulkan.Auxiliary.Instance
     Vulkan.Auxiliary.Exception
     Vulkan.Auxiliary.Ext.VK_EXT_debug_report
     Vulkan.Auxiliary.Ext.VK_EXT_debug_utils
+    Vulkan.Auxiliary.Instance
+    Vulkan.Auxiliary.PhysicalDevice
+  if flag(ndebug)
+    cpp-options: -DNDEBUG

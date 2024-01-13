@@ -99,7 +99,7 @@ mainBody = withNewScope \mainScope -> do
     (return nullPtr)
   putStrLn "Vulkan instance created."
 
-#ifndef ndebug
+#ifndef NDEBUG
   debugUtilsExt <- getInstanceExtension @VK_EXT_debug_utils vkInstance
 
   debugMessengerCallbackFunPtr <- acquireIn mainScope $
@@ -110,8 +110,8 @@ mainBody = withNewScope \mainScope -> do
       allocaMarshal DebugUtilsMessengerCreateInfo {
         withNextPtr = return nullPtr,
         messageSeverity =
-          VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT .|.
-          VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT .|.
+          --VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT .|.
+          --VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT .|.
           VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT .|.
           VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
         messageType =
@@ -127,6 +127,13 @@ mainBody = withNewScope \mainScope -> do
   putStrLn "Debug messenger callback registered."
 #endif
 
+  lowerCodensity do
+    (physDevicesArrayLen, physDeviceCount, physDevicesPtr) <-
+      withEnumeratedPhysicalDevices vkInstance \count -> Codensity $ allocaArray (fromIntegral count)
+    liftIO $ do
+      putStrLn $ "Phys devices array length: " ++ show physDevicesArrayLen
+      putStrLn $ "Number of phys devices: " ++ show physDeviceCount
+
   putStrLn "Render loop starting."
   fix $ \renderLoop ->
     GLFW.getWindowStatus window lastWindowResizeTimeRef >>= \case
@@ -141,7 +148,7 @@ mainBody = withNewScope \mainScope -> do
 
 appInstanceExtensions :: [CString]
 appInstanceExtensions =
-#ifndef ndebug
+#ifndef NDEBUG
   VK_EXT_DEBUG_UTILS_EXTENSION_NAME :
 #endif
   [
@@ -149,7 +156,7 @@ appInstanceExtensions =
 
 validationLayers :: [CString]
 validationLayers =
-#ifndef ndebug
+#ifndef NDEBUG
   Ptr "VK_LAYER_KHRONOS_validation"# :
 #endif
   [
