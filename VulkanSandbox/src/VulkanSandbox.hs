@@ -11,8 +11,10 @@ module Main where
 
 import Local.Prelude
 
+import Local.Control.Monad
 import qualified Local.Graphics.UI.GLFW as GLFW
 import Local.Foreign.Ptr
+import Local.Foreign.Storable.Offset
 
 import ApplicationException
 import Control.Exception
@@ -20,6 +22,7 @@ import Control.Monad.Codensity
 import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Data.Bits
+import Data.List
 import Data.Function
 import Data.Functor
 import Data.IORef
@@ -32,7 +35,7 @@ import ScopedResource
 import System.Clock
 import System.IO
 import Vulkan.Auxiliary
-import Vulkan.Auxiliary.Ext.VK_EXT_debug_report
+import Vulkan.Auxiliary.Ext.VK_EXT_debug_utils
 
 main :: IO ()
 main =
@@ -97,31 +100,31 @@ mainBody = withNewScope \mainScope -> do
   putStrLn "Vulkan instance created."
 
 #ifndef ndebug
-  debugReportExt <- getInstanceExtension @VK_EXT_debug_report vkInstance
+  debugUtilsExt <- getInstanceExtension @VK_EXT_debug_utils vkInstance
 
-  debugCallbackFunPtr <- acquireIn mainScope $ haskellFunPtrResource wrapPFN_vkDebugReportCallbackEXT
-    \flags objectType object location messageCode layerPrefixPtr messagePtr userDataPtr -> do
-      message <- peekCString utf8 (castPtr messagePtr)
-      putStrLn ("Debug report: " ++ message)
-      return VK_FALSE
+  debugMessengerCallbackFunPtr <- acquireIn mainScope $
+    haskellFunPtrResource wrapPFN_vkDebugUtilsMessengerCallbackEXT handleDebugMessage
 
-  void . acquireIn mainScope $ debugReportCallbackResource debugReportExt vkInstance
+  void . acquireIn mainScope $ debugUtilsMessengerResource debugUtilsExt vkInstance
     (
-      allocaMarshal DebugReportCallbackCreateInfo {
+      allocaMarshal DebugUtilsMessengerCreateInfo {
         withNextPtr = return nullPtr,
-        flags =
-          VK_DEBUG_REPORT_ERROR_BIT_EXT .|.
-          VK_DEBUG_REPORT_WARNING_BIT_EXT .|.
-          VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT .|.
-          VK_DEBUG_REPORT_INFORMATION_BIT_EXT .|.
-          VK_DEBUG_REPORT_DEBUG_BIT_EXT,
-        callbackFunPtr = debugCallbackFunPtr,
-        withUserDataPtr = return nullPtr
+        messageSeverity =
+          VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT .|.
+          VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT .|.
+          VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT .|.
+          VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+        messageType =
+          VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT .|.
+          VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT .|.
+          VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+        userCallbackFunPtr = debugMessengerCallbackFunPtr,
+        withUserDataPtr = (return nullPtr)
       }
     )
     (return nullPtr)
     (return nullPtr)
-  putStrLn "Debug report callback registered."
+  putStrLn "Debug messenger callback registered."
 #endif
 
   putStrLn "Render loop starting."
@@ -139,7 +142,7 @@ mainBody = withNewScope \mainScope -> do
 appInstanceExtensions :: [CString]
 appInstanceExtensions =
 #ifndef ndebug
-  VK_EXT_DEBUG_REPORT_EXTENSION_NAME :
+  VK_EXT_DEBUG_UTILS_EXTENSION_NAME :
 #endif
   [
   ]
@@ -151,3 +154,54 @@ validationLayers =
 #endif
   [
   ]
+
+handleDebugMessage :: PFN_vkDebugUtilsMessengerCallbackEXT
+handleDebugMessage messageSeverity messageTypes callbackDataPtr userDataPtr = do
+  putStrLn "--Debug Utils Message--"
+  putStrLn $ "Severity: " ++ show messageSeverity
+  putStrLn $ "Types: " ++ show messageTypes
+  runForPtr callbackDataPtr do
+    messageIdNamePtr <- castPtr <$> peekPtrOffset @"pMessageIdName"
+    liftIO $ do
+      messageIdName <- peekCString utf8 messageIdNamePtr
+      putStrLn $ "Message ID Name: " ++ messageIdName
+    messageIdNumber <- peekPtrOffset @"messageIdNumber"
+    liftIO $ putStrLn $ "Message ID Number: " ++ show messageIdNumber
+    messagePtr <- castPtr <$> peekPtrOffset @"pMessage"
+    liftIO $ do
+      message <- peekCString utf8 messagePtr
+      putStrLn $ "Message: " ++ message
+    queueLabelCount <- peekPtrOffset @"queueLabelCount"
+    when (queueLabelCount > 0) do
+      queueLabelsPtr <- peekPtrOffset @"pQueueLabels"
+      liftIO $ do
+        putStrLn "Queue Labels:"
+        forM_ [0..fromIntegral queueLabelCount] \idx -> do
+          labelNamePtr <- runForPtr (advancePtr queueLabelsPtr idx) (peekPtrOffset @"pLabelName")
+          labelName <- peekCString utf8 (castPtr labelNamePtr)
+          putStrLn $ "  " ++ labelName
+    cmdBufLabelCount <- peekPtrOffset @"cmdBufLabelCount"
+    when (cmdBufLabelCount > 0) do
+      cmdBufLabelsPtr <- peekPtrOffset @"pCmdBufLabels"
+      liftIO $ do
+        putStrLn "Command Buffer Labels:"
+        forM_ [0..fromIntegral cmdBufLabelCount] \idx -> do
+          labelNamePtr <- runForPtr (advancePtr cmdBufLabelsPtr idx) (peekPtrOffset @"pLabelName")
+          labelName <- peekCString utf8 (castPtr labelNamePtr)
+          putStrLn $ "  " ++ labelName
+    objectCount <- peekPtrOffset @"objectCount"
+    when (objectCount > 0) do
+      objectsPtr <- peekPtrOffset @"pObjects"
+      liftIO $ do
+        putStrLn "Objects:"
+        forM_ [0..fromIntegral objectCount] \idx -> do
+          (objectType, objectHandle, objectNamePtr) <-
+            runForPtr (advancePtr objectsPtr idx) $
+              (,,) <$>
+              peekPtrOffset @"objectType" <*>
+              peekPtrOffset @"objectHandle" <*>
+              peekPtrOffset @"pObjectName"
+          objectName <- if objectNamePtr /= nullPtr then peekCString utf8 (castPtr objectNamePtr) else return ""
+          putStrLn $ "  " ++ show objectType ++ " " ++ show objectHandle ++ " " ++ objectName
+  putStrLn ""
+  return VK_FALSE

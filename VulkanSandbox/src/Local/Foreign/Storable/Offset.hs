@@ -4,13 +4,15 @@ module Local.Foreign.Storable.Offset (
   module Foreign.Storable.Offset,
   runForPtr,
   pokePtrOffset,
-  pokePtrArrayOffset
+  pokePtrArrayOffset,
+  peekPtrOffset
 ) where
 
 import Local.Control.Monad
 
 import Control.Monad.IO.Class
 import Control.Monad.Reader
+import Foreign.Marshal.Array
 import Foreign.Ptr
 import Foreign.Storable
 import Foreign.Storable.Offset
@@ -36,7 +38,13 @@ pokePtrArrayOffset values = do
   ptr <- ask
   liftIO $ foldForM_ (offset @x ptr) values \elemPtr value -> do
     poke elemPtr value
-    return $ plusPtr elemPtr valueSize
+    return $ advancePtr elemPtr 1
 
-  where
-  valueSize = sizeOf (undefined :: a)
+peekPtrOffset ::
+  forall x r a.
+  (HasField x r a, Offset x r, Storable a) =>
+  ReaderT (Ptr r) IO a
+peekPtrOffset = do
+  ptr <- ask
+  liftIO $ peek (offset @x ptr)
+{-# INLINE peekPtrOffset #-}
