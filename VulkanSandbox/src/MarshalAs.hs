@@ -6,9 +6,10 @@ module MarshalAs (
   allocaMarshal
 ) where
 
-import Control.Monad.Codensity
+import Local.Foreign.Marshal.Alloc
+import Local.Control.Monad.Codensity
+
 import Control.Monad.IO.Class
-import Foreign.Marshal.Alloc
 import Foreign.Ptr
 import Foreign.Storable
 
@@ -18,8 +19,8 @@ class Storable a => MarshalAs a b | b -> a where
 allocaMarshal ::
   forall a b.
   MarshalAs a b =>
-  b -> Codensity IO (Ptr a)
-allocaMarshal b = do
-  structPtr <- Codensity $ alloca @a
-  liftIO $ marshalTo structPtr b
-  return structPtr
+  b -> SomeIOWith (Ptr a)
+allocaMarshal b = runCodensity do
+  ptr <- Codensity alloca
+  liftIO $ marshalTo ptr b
+  return ptr

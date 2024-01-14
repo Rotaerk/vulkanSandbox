@@ -42,11 +42,11 @@ executable VulkanSandbox
   other-modules:
     ApplicationException
     Local.Control.Monad
+    Local.Control.Monad.Codensity
     Local.Foreign.Marshal.Alloc
+    Local.Foreign.Marshal.Array
     Local.Foreign.Ptr
-    Local.Foreign.Storable.Offset
     Local.Graphics.UI.GLFW
-    Local.Prelude
     MarshalAs
     ScopedResource
     Vulkan.Auxiliary

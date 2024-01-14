@@ -1,9 +1,13 @@
 module Vulkan.Auxiliary.PhysicalDevice (
-  withEnumeratedPhysicalDevices
+  withEnumeratedPhysicalDevices,
+  withPhysicalDeviceProperties,
+  withPhysicalDeviceMemoryProperties,
+  withPhysicalDeviceFeatures
 ) where
 
+import Local.Control.Monad.Codensity
+
 import Control.Monad
-import Control.Monad.Codensity
 import Control.Monad.IO.Class
 import Data.Word
 import Foreign.Ptr
@@ -14,18 +18,39 @@ import Vulkan.Auxiliary.Exception
 
 withEnumeratedPhysicalDevices ::
   VkInstance ->
-  (Word32 -> Codensity IO (Ptr VkPhysicalDevice)) ->
-  Codensity IO (Word32, Word32, Ptr VkPhysicalDevice)
-withEnumeratedPhysicalDevices vkInstance withPhysDeviceArrayOfLength = do
+  (forall r. Word32 -> IOWith (Ptr VkPhysicalDevice) r) ->
+  SomeIOWith (Word32, Ptr VkPhysicalDevice)
+withEnumeratedPhysicalDevices vkInstance withPhysDeviceArrayOfLength = runCodensity do
   physDevicesCountPtr <- Codensity alloca
-  void $ liftIO $ vkEnumeratePhysicalDevices vkInstance physDevicesCountPtr nullPtr >>=
-    throwIfVkResultNotSuccess vkFunEnumeratePhysicalDevices
-  physDevicesArrayLen <- liftIO $ peek physDevicesCountPtr
+  physDevicesArrayLen <- liftIO do
+    void $ vkEnumeratePhysicalDevices vkInstance physDevicesCountPtr nullPtr >>=
+      throwIfVkResultNotSuccess vkFunEnumeratePhysicalDevices
+    peek physDevicesCountPtr
   if physDevicesArrayLen == 0 then
-    return (0, 0, nullPtr)
+    return (0, nullPtr)
   else do
-    physDevicesPtr <- withPhysDeviceArrayOfLength physDevicesArrayLen
+    physDevicesPtr <- Codensity $ withPhysDeviceArrayOfLength physDevicesArrayLen
     void $ liftIO $ vkEnumeratePhysicalDevices vkInstance physDevicesCountPtr physDevicesPtr >>=
       throwIfVkResultNotIn [VK_SUCCESS, VK_INCOMPLETE] vkFunEnumeratePhysicalDevices
     physDevicesCount <- liftIO $ peek physDevicesCountPtr
-    return (physDevicesArrayLen, physDevicesCount, physDevicesPtr)
+    return (physDevicesCount, physDevicesPtr)
+
+withPhysicalDeviceProperties ::
+  VkPhysicalDevice ->
+  SomeIOWith (Ptr VkPhysicalDeviceProperties)
+withPhysicalDeviceProperties physDevice =
+  beforeCont (vkGetPhysicalDeviceProperties physDevice) alloca
+
+withPhysicalDeviceMemoryProperties ::
+  VkPhysicalDevice ->
+  SomeIOWith (Ptr VkPhysicalDeviceMemoryProperties)
+withPhysicalDeviceMemoryProperties physDevice =
+  beforeCont (vkGetPhysicalDeviceMemoryProperties physDevice) alloca
+
+withPhysicalDeviceFeatures ::
+  VkPhysicalDevice ->
+  SomeIOWith (Ptr VkPhysicalDeviceFeatures)
+withPhysicalDeviceFeatures physDevice =
+  beforeCont (vkGetPhysicalDeviceFeatures physDevice) alloca
+
+--getPhysicalDevice

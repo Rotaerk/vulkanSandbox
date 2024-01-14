@@ -6,28 +6,27 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Main where
 
-import Local.Prelude
-
 import Local.Control.Monad
+import Local.Control.Monad.Codensity
 import qualified Local.Graphics.UI.GLFW as GLFW
+import Local.Foreign.Marshal.Array
 import Local.Foreign.Ptr
-import Local.Foreign.Storable.Offset
 
 import ApplicationException
 import Control.Exception
-import Control.Monad.Codensity
 import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Data.Bits
-import Data.List
 import Data.Function
 import Data.Functor
 import Data.IORef
 import Foreign.C.String hiding (withCString, peekCString)
-import Foreign.Marshal.Array
+import Foreign.Storable
+import Foreign.Storable.Offset
 import GHC.Foreign
 import GHC.Ptr
 import MarshalAs
@@ -74,29 +73,29 @@ mainBody = withNewScope \mainScope -> do
   vkInstance <- acquireIn mainScope $ instanceResource
     (
       allocaMarshal InstanceCreateInfo {
-        withNextPtr = return nullPtr,
+        withNextPtr = pure nullPtr,
         flags = 0,
 
         withAppInfoPtr =
-          allocaMarshal ApplicationInfo {
-            withAppNamePtr = return (Ptr "Vulkan Sandbox"#),
+          Codensity $ allocaMarshal ApplicationInfo {
+            withAppNamePtr = pure (Ptr "Vulkan Sandbox"#),
             appVersion = VK_MAKE_VERSION 1 0 0,
-            withEngineNamePtr = return nullPtr,
+            withEngineNamePtr = pure nullPtr,
             engineVersion = 0,
             apiVersion = VK_API_VERSION_1_0
           },
 
         withEnabledLayerNamesPtrLen = do
-          (numLayers, layersPtr) <- Codensity $ withContUncurried (withArrayLen validationLayers)
-          return (layersPtr, fromIntegral numLayers),
+          (numLayers, layersPtr) <- Codensity $ withArrayLenTuple validationLayers
+          pure (layersPtr, fromIntegral numLayers),
 
         withEnabledExtensionNamesPtrLen = do
-          (numExtensions, extensionsPtr) <- Codensity $ withContUncurried (withArrayLen requiredInstanceExtensions)
-          return (extensionsPtr, fromIntegral numExtensions)
+          (numExtensions, extensionsPtr) <- Codensity $ withArrayLenTuple requiredInstanceExtensions
+          pure (extensionsPtr, fromIntegral numExtensions)
       }
     )
-    (return nullPtr)
-    (return nullPtr)
+    ($ nullPtr)
+    ($ nullPtr)
   putStrLn "Vulkan instance created."
 
 #ifndef NDEBUG
@@ -108,7 +107,7 @@ mainBody = withNewScope \mainScope -> do
   void . acquireIn mainScope $ debugUtilsMessengerResource debugUtilsExt vkInstance
     (
       allocaMarshal DebugUtilsMessengerCreateInfo {
-        withNextPtr = return nullPtr,
+        withNextPtr = pure nullPtr,
         messageSeverity =
           --VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT .|.
           --VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT .|.
@@ -119,20 +118,24 @@ mainBody = withNewScope \mainScope -> do
           VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT .|.
           VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
         userCallbackFunPtr = debugMessengerCallbackFunPtr,
-        withUserDataPtr = (return nullPtr)
+        withUserDataPtr = pure nullPtr
       }
     )
-    (return nullPtr)
-    (return nullPtr)
+    ($ nullPtr)
+    ($ nullPtr)
   putStrLn "Debug messenger callback registered."
 #endif
 
-  lowerCodensity do
-    (physDevicesArrayLen, physDeviceCount, physDevicesPtr) <-
-      withEnumeratedPhysicalDevices vkInstance \count -> Codensity $ allocaArray (fromIntegral count)
-    liftIO $ do
-      putStrLn $ "Phys devices array length: " ++ show physDevicesArrayLen
-      putStrLn $ "Number of phys devices: " ++ show physDeviceCount
+  withEnumeratedPhysicalDevices vkInstance (allocaArray . fromIntegral) \(physDevicesCount, physDevicesPtr) -> do
+    physDevices <- peekArray (fromIntegral physDevicesCount) physDevicesPtr
+    forM_ physDevices \physDevice ->
+      withPhysicalDeviceProperties physDevice \propertiesPtr ->
+      withPhysicalDeviceMemoryProperties physDevice \memoryPropertiesPtr -> do
+        deviceType <- peek $ offset @"deviceType" propertiesPtr
+        memoryHeapCount <- peek $ offset @"memoryHeapCount" memoryPropertiesPtr
+        putStrLn "--Phys Device--"
+        putStrLn $ "Type: " ++ show deviceType
+        putStrLn $ "Memory Heap Count: " ++ show memoryHeapCount
 
   putStrLn "Render loop starting."
   fix $ \renderLoop ->
@@ -167,48 +170,76 @@ handleDebugMessage messageSeverity messageTypes callbackDataPtr userDataPtr = do
   putStrLn "--Debug Utils Message--"
   putStrLn $ "Severity: " ++ show messageSeverity
   putStrLn $ "Types: " ++ show messageTypes
-  runForPtr callbackDataPtr do
-    messageIdNamePtr <- castPtr <$> peekPtrOffset @"pMessageIdName"
+  let ptr = callbackDataPtr
+  messageIdNamePtr <- peek (offset @"pMessageIdName" ptr)
+  liftIO $ do
+    messageIdName <- peekCString utf8 (castPtr messageIdNamePtr)
+    putStrLn $ "Message ID Name: " ++ messageIdName
+  messageIdNumber <- peek $ offset @"messageIdNumber" ptr
+  liftIO $ putStrLn $ "Message ID Number: " ++ show messageIdNumber
+  messagePtr <- peek $ offset @"pMessage" ptr
+  liftIO $ do
+    message <- peekCString utf8 (castPtr messagePtr)
+    putStrLn $ "Message: " ++ message
+  queueLabelCount <- peek (offset @"queueLabelCount" ptr)
+  when (queueLabelCount > 0) do
+    queueLabelsPtr <- peek (offset @"pQueueLabels" ptr)
     liftIO $ do
-      messageIdName <- peekCString utf8 messageIdNamePtr
-      putStrLn $ "Message ID Name: " ++ messageIdName
-    messageIdNumber <- peekPtrOffset @"messageIdNumber"
-    liftIO $ putStrLn $ "Message ID Number: " ++ show messageIdNumber
-    messagePtr <- castPtr <$> peekPtrOffset @"pMessage"
+      putStrLn "Queue Labels:"
+      forM_ (arrayElemPtrs queueLabelsPtr (fromIntegral queueLabelCount)) \labelPtr -> do
+        labelNamePtr <- peek $ offset @"pLabelName" labelPtr
+        labelName <- peekCString utf8 (castPtr labelNamePtr)
+        putStrLn $ "  " ++ labelName
+  cmdBufLabelCount <- peek (offset @"cmdBufLabelCount" ptr)
+  when (cmdBufLabelCount > 0) do
+    cmdBufLabelsPtr <- peek (offset @"pCmdBufLabels" ptr)
     liftIO $ do
-      message <- peekCString utf8 messagePtr
-      putStrLn $ "Message: " ++ message
-    queueLabelCount <- peekPtrOffset @"queueLabelCount"
-    when (queueLabelCount > 0) do
-      queueLabelsPtr <- peekPtrOffset @"pQueueLabels"
-      liftIO $ do
-        putStrLn "Queue Labels:"
-        forM_ [0..fromIntegral queueLabelCount] \idx -> do
-          labelNamePtr <- runForPtr (advancePtr queueLabelsPtr idx) (peekPtrOffset @"pLabelName")
-          labelName <- peekCString utf8 (castPtr labelNamePtr)
-          putStrLn $ "  " ++ labelName
-    cmdBufLabelCount <- peekPtrOffset @"cmdBufLabelCount"
-    when (cmdBufLabelCount > 0) do
-      cmdBufLabelsPtr <- peekPtrOffset @"pCmdBufLabels"
-      liftIO $ do
-        putStrLn "Command Buffer Labels:"
-        forM_ [0..fromIntegral cmdBufLabelCount] \idx -> do
-          labelNamePtr <- runForPtr (advancePtr cmdBufLabelsPtr idx) (peekPtrOffset @"pLabelName")
-          labelName <- peekCString utf8 (castPtr labelNamePtr)
-          putStrLn $ "  " ++ labelName
-    objectCount <- peekPtrOffset @"objectCount"
-    when (objectCount > 0) do
-      objectsPtr <- peekPtrOffset @"pObjects"
-      liftIO $ do
-        putStrLn "Objects:"
-        forM_ [0..fromIntegral objectCount] \idx -> do
-          (objectType, objectHandle, objectNamePtr) <-
-            runForPtr (advancePtr objectsPtr idx) $
-              (,,) <$>
-              peekPtrOffset @"objectType" <*>
-              peekPtrOffset @"objectHandle" <*>
-              peekPtrOffset @"pObjectName"
-          objectName <- if objectNamePtr /= nullPtr then peekCString utf8 (castPtr objectNamePtr) else return ""
-          putStrLn $ "  " ++ show objectType ++ " " ++ show objectHandle ++ " " ++ objectName
+      putStrLn "Command Buffer Labels:"
+      forM_ (arrayElemPtrs cmdBufLabelsPtr (fromIntegral cmdBufLabelCount)) \labelPtr -> do
+        labelNamePtr <- peek $ offset @"pLabelName" labelPtr
+        labelName <- peekCString utf8 (castPtr labelNamePtr)
+        putStrLn $ "  " ++ labelName
+  objectCount <- peek $ offset @"objectCount" ptr
+  when (objectCount > 0) do
+    objectsPtr <- peek $ offset @"pObjects" ptr
+    liftIO $ do
+      putStrLn "Objects:"
+      forM_ (arrayElemPtrs objectsPtr (fromIntegral objectCount)) \objectPtr -> do
+        objectType <- peek $ offset @"objectType" objectPtr
+        objectHandle <- peek $ offset @"objectHandle" objectPtr
+        objectNamePtr <- peek $ offset @"pObjectName" objectPtr
+        objectName <- if objectNamePtr /= nullPtr then peekCString utf8 (castPtr objectNamePtr) else pure ""
+        putStrLn $ "  " ++ show objectType ++ " " ++ show objectHandle ++ " " ++ objectName
   putStrLn ""
-  return VK_FALSE
+  pure VK_FALSE
+
+pickPhysDevice :: VkInstance -> IO VkPhysicalDevice
+pickPhysDevice vkInstance =
+  withEnumeratedPhysicalDevices vkInstance (allocaArray . fromIntegral) \(physDevicesCount, physDevicesPtr) -> do
+    physDevices <- peekArray (fromIntegral physDevicesCount) physDevicesPtr
+    forM_ physDevices \physDevice -> do
+      deviceType <- withPhysicalDeviceProperties physDevice \ptr -> do
+        peek $ offset @"deviceType" ptr
+      memoryHeapCount <- withPhysicalDeviceMemoryProperties physDevice \ptr -> do
+        peek $ offset @"memoryHeapCount" ptr
+      putStrLn "--Phys Device--"
+      putStrLn $ "Type: " ++ show deviceType
+      putStrLn $ "Memory Heap Count: " ++ show memoryHeapCount
+    return undefined
+
+{-
+pickPhysicalDevice :: VkInstance -> IO VkPhysicalDevice
+pickPhysicalDevice vkInstance = lowerCodensity do
+  (physDevicesCount, physDevicesPtr) <- Codensity $ withEnumeratedPhysicalDevices vkInstance \count -> allocaArray (fromIntegral count)
+  liftIO $ withNewScope \physDevSelectionScope -> do
+    physDevices <- peekArray (fromIntegral physDevicesCount) physDevicesPtr
+    pdInfos <- forM physDevices $ \physDevice -> do
+      (pdpPtr, pdpReleaseHandle) <- tentativelyAcquireIn physDevSelectionScope (mallocResource @VkPhysicalDeviceProperties)
+      vkGetPhysicalDeviceProperties physDevice pdpPtr
+      (pdmpPtr, pdmpReleaseHandle) <- tentativelyAcquireIn physDevSelectionScope (mallocResource @VkPhysicalDeviceMemoryProperties)
+      vkGetPhysicalDeviceMemoryProperties physDevice pdmpPtr
+      (pdfPtr, pdfReleaseHandle) <- tentativelyAcquireIn physDevSelectionScope (mallocResource @VkPhysicalDeviceFeatures)
+      vkGetPhysicalDeviceFeatures physDevice pdfPtr
+      pure (physDevice, pdpPtr, pdpReleaseHandle, pdmpPtr, pdmpReleaseHandle, pdfPtr, pdfReleaseHandle)
+    pure undefined
+-}

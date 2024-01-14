@@ -14,16 +14,16 @@ module Vulkan.Auxiliary.Instance (
   InstanceExtension(..)
 ) where
 
-import Control.Monad.Codensity
+import Local.Control.Monad.Codensity
+import Local.Foreign.Marshal.Alloc
 import Local.Foreign.Ptr
-import Local.Foreign.Storable.Offset
 
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Word
 import Foreign.C.String
-import Foreign.Marshal.Alloc
 import Foreign.Storable
+import Foreign.Storable.Offset
 import MarshalAs
 import ScopedResource
 import Vulkan.Core_1_0
@@ -42,14 +42,15 @@ instance MarshalAs VkApplicationInfo ApplicationInfo where
   marshalTo ptr fields = lowerCodensity do
     appNamePtr <- fields.withAppNamePtr
     engineNamePtr <- fields.withEngineNamePtr
-    liftIO $ runForPtr ptr do
-      pokePtrOffset @"sType" VK_STRUCTURE_TYPE_APPLICATION_INFO
-      pokePtrOffset @"pNext" nullPtr
-      pokePtrOffset @"pApplicationName" (castPtr appNamePtr)
-      pokePtrOffset @"applicationVersion" fields.appVersion
-      pokePtrOffset @"pEngineName" (castPtr engineNamePtr)
-      pokePtrOffset @"engineVersion" fields.engineVersion
-      pokePtrOffset @"apiVersion" fields.apiVersion
+    liftIO do
+      poke (offset @"sType" ptr) VK_STRUCTURE_TYPE_APPLICATION_INFO
+      poke (offset @"sType" ptr) VK_STRUCTURE_TYPE_APPLICATION_INFO
+      poke (offset @"pNext" ptr) nullPtr
+      poke (offset @"pApplicationName" ptr) $ castPtr appNamePtr
+      poke (offset @"applicationVersion" ptr) fields.appVersion
+      poke (offset @"pEngineName" ptr) $ castPtr engineNamePtr
+      poke (offset @"engineVersion" ptr) fields.engineVersion
+      poke (offset @"apiVersion" ptr) fields.apiVersion
 
 data InstanceCreateInfo =
   InstanceCreateInfo {
@@ -66,37 +67,34 @@ instance MarshalAs VkInstanceCreateInfo InstanceCreateInfo where
     appInfoPtr <- fields.withAppInfoPtr
     (enabledLayerNamesPtr, enabledLayerCount) <- fields.withEnabledLayerNamesPtrLen
     (enabledExtensionNamesPtr, enabledExtensionCount) <- fields.withEnabledExtensionNamesPtrLen
-    liftIO $ runForPtr ptr do
-      pokePtrOffset @"sType" VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO
-      pokePtrOffset @"pNext" nextPtr
-      pokePtrOffset @"flags" fields.flags
-      pokePtrOffset @"pApplicationInfo" appInfoPtr
-      pokePtrOffset @"enabledLayerCount" enabledLayerCount
-      pokePtrOffset @"ppEnabledLayerNames" (castPtr enabledLayerNamesPtr)
-      pokePtrOffset @"enabledExtensionCount" enabledExtensionCount
-      pokePtrOffset @"ppEnabledExtensionNames" (castPtr enabledExtensionNamesPtr)
+    liftIO do
+      poke (offset @"sType" ptr) VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO
+      poke (offset @"pNext" ptr) nextPtr
+      poke (offset @"flags" ptr) fields.flags
+      poke (offset @"pApplicationInfo" ptr) appInfoPtr
+      poke (offset @"enabledLayerCount" ptr) enabledLayerCount
+      poke (offset @"ppEnabledLayerNames" ptr) $ castPtr enabledLayerNamesPtr
+      poke (offset @"enabledExtensionCount" ptr) enabledExtensionCount
+      poke (offset @"ppEnabledExtensionNames" ptr) $ castPtr enabledExtensionNamesPtr
 
 createInstance ::
-  Codensity IO (Ptr VkInstanceCreateInfo) ->
-  Codensity IO (Ptr VkAllocationCallbacks) ->
+  SomeIOWith (Ptr VkInstanceCreateInfo) ->
+  SomeIOWith (Ptr VkAllocationCallbacks) ->
   IO VkInstance
-createInstance withCreateInfoPtr withAllocatorPtr = lowerCodensity do
-  createInfoPtr <- withCreateInfoPtr
-  allocatorPtr <- withAllocatorPtr
-  liftIO $ alloca \ptr -> do
+createInstance withCreateInfoPtr withAllocatorPtr =
+  withCreateInfoPtr \createInfoPtr ->
+  withAllocatorPtr \allocatorPtr ->
+  allocaPeek \ptr -> do
     vkCreateInstance createInfoPtr allocatorPtr ptr >>=
       throwIfVkResultNotSuccess vkFunCreateInstance
-    peek ptr
 
-destroyInstance :: VkInstance -> Codensity IO (Ptr VkAllocationCallbacks) -> IO ()
-destroyInstance vkInstance withAllocatorPtr = lowerCodensity do
-  allocatorPtr <- withAllocatorPtr
-  liftIO $ vkDestroyInstance vkInstance allocatorPtr
+destroyInstance :: VkInstance -> SomeIOWith (Ptr VkAllocationCallbacks) -> IO ()
+destroyInstance vkInstance withAllocatorPtr = withAllocatorPtr $ vkDestroyInstance vkInstance
 
 instanceResource ::
-  Codensity IO (Ptr VkInstanceCreateInfo) ->
-  Codensity IO (Ptr VkAllocationCallbacks) ->
-  Codensity IO (Ptr VkAllocationCallbacks) ->
+  SomeIOWith (Ptr VkInstanceCreateInfo) ->
+  SomeIOWith (Ptr VkAllocationCallbacks) ->
+  SomeIOWith (Ptr VkAllocationCallbacks) ->
   Resource VkInstance
 instanceResource withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr = Resource
   (createInstance withCreateInfoPtr withCreateAllocatorPtr)

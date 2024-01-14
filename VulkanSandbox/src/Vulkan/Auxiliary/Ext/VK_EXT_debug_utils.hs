@@ -21,17 +21,19 @@ module Vulkan.Auxiliary.Ext.VK_EXT_debug_utils (
   submitDebugUtilsMessage
 ) where
 
+import Local.Control.Monad.Codensity
+import Local.Foreign.Marshal.Alloc
+import Local.Foreign.Marshal.Array
 import Local.Foreign.Ptr
-import Local.Foreign.Storable.Offset
 
-import Control.Monad.Codensity
+import Control.Monad
 import Control.Monad.IO.Class
 import Data.Int
 import Data.Word
 import Foreign.C.String
 import Foreign.C.Types
-import Foreign.Marshal.Alloc
 import Foreign.Storable
+import Foreign.Storable.Offset
 import MarshalAs
 import ScopedResource
 import Vulkan.Auxiliary.Core
@@ -91,11 +93,11 @@ data DebugUtilsLabel =
 instance MarshalAs VkDebugUtilsLabelEXT DebugUtilsLabel where
   marshalTo ptr fields = lowerCodensity do
     labelNamePtr <- fields.withLabelNamePtr
-    liftIO $ runForPtr ptr do
-      pokePtrOffset @"sType" VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT
-      pokePtrOffset @"pNext" nullPtr
-      pokePtrOffset @"pLabelName" (castPtr labelNamePtr)
-      pokePtrArrayOffset @"color" (let (r,g,b,a) = fields.color in [r,g,b,a])
+    liftIO do
+      poke (offset @"sType" ptr) VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT
+      poke (offset @"pNext" ptr) nullPtr
+      poke (offset @"pLabelName" ptr) $ castPtr labelNamePtr
+      pokeArray (offset @"color" ptr) $ let (r,g,b,a) = fields.color in [r,g,b,a]
 
 data DebugUtilsMessengerCallbackData =
   DebugUtilsMessengerCallbackData {
@@ -119,19 +121,19 @@ instance MarshalAs VkDebugUtilsMessengerCallbackDataEXT DebugUtilsMessengerCallb
     queueLabelsPtr <- fields.withQueueLabelsPtr
     cmdBufLabelsPtr <- fields.withCmdBufLabelsPtr
     objectsPtr <- fields.withObjectsPtr
-    liftIO $ runForPtr ptr do
-      pokePtrOffset @"sType" VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT
-      pokePtrOffset @"pNext" nextPtr
-      pokePtrOffset @"flags" 0
-      pokePtrOffset @"pMessageIdName" (castPtr messageIdNamePtr)
-      pokePtrOffset @"messageIdNumber" fields.messageIdNumber
-      pokePtrOffset @"pMessage" (castPtr messagePtr)
-      pokePtrOffset @"queueLabelCount" fields.queueLabelCount
-      pokePtrOffset @"pQueueLabels" queueLabelsPtr
-      pokePtrOffset @"cmdBufLabelCount" fields.cmdBufLabelCount
-      pokePtrOffset @"pCmdBufLabels" cmdBufLabelsPtr
-      pokePtrOffset @"objectCount" fields.objectCount
-      pokePtrOffset @"pObjects" objectsPtr
+    liftIO do
+      poke (offset @"sType" ptr) VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT
+      poke (offset @"pNext" ptr) nextPtr
+      poke (offset @"flags" ptr) 0
+      poke (offset @"pMessageIdName" ptr) $ castPtr messageIdNamePtr
+      poke (offset @"messageIdNumber" ptr) fields.messageIdNumber
+      poke (offset @"pMessage" ptr) $ castPtr messagePtr
+      poke (offset @"queueLabelCount" ptr) fields.queueLabelCount
+      poke (offset @"pQueueLabels" ptr) queueLabelsPtr
+      poke (offset @"cmdBufLabelCount" ptr) fields.cmdBufLabelCount
+      poke (offset @"pCmdBufLabels" ptr) cmdBufLabelsPtr
+      poke (offset @"objectCount" ptr) fields.objectCount
+      poke (offset @"pObjects" ptr) objectsPtr
 
 data DebugUtilsObjectTagInfo =
   DebugUtilsObjectTagInfo {
@@ -145,14 +147,14 @@ data DebugUtilsObjectTagInfo =
 instance MarshalAs VkDebugUtilsObjectTagInfoEXT DebugUtilsObjectTagInfo where
   marshalTo ptr fields = lowerCodensity do
     tagPtr <- fields.withTagPtr
-    liftIO $ runForPtr ptr do
-      pokePtrOffset @"sType" VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_TAG_INFO_EXT
-      pokePtrOffset @"pNext" nullPtr
-      pokePtrOffset @"objectType" fields.objectType
-      pokePtrOffset @"objectHandle" fields.objectHandle
-      pokePtrOffset @"tagName" fields.tagName
-      pokePtrOffset @"tagSize" (let (CSize w) = fields.tagSize in w)
-      pokePtrOffset @"pTag" tagPtr
+    liftIO do
+      poke (offset @"sType" ptr) VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_TAG_INFO_EXT
+      poke (offset @"pNext" ptr) nullPtr
+      poke (offset @"objectType" ptr) fields.objectType
+      poke (offset @"objectHandle" ptr) fields.objectHandle
+      poke (offset @"tagName" ptr) fields.tagName
+      poke (offset @"tagSize" ptr) $ let (CSize w) = fields.tagSize in w
+      poke (offset @"pTag" ptr) tagPtr
 
 data DebugUtilsMessengerCreateInfo =
   DebugUtilsMessengerCreateInfo {
@@ -167,14 +169,14 @@ instance MarshalAs VkDebugUtilsMessengerCreateInfoEXT DebugUtilsMessengerCreateI
   marshalTo ptr fields = lowerCodensity do
     nextPtr <- fields.withNextPtr
     userDataPtr <- fields.withUserDataPtr
-    liftIO $ runForPtr ptr do
-      pokePtrOffset @"sType" VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT
-      pokePtrOffset @"pNext" nextPtr
-      pokePtrOffset @"flags" 0
-      pokePtrOffset @"messageSeverity" fields.messageSeverity
-      pokePtrOffset @"messageType" fields.messageType
-      pokePtrOffset @"pfnUserCallback" fields.userCallbackFunPtr
-      pokePtrOffset @"pUserData" userDataPtr
+    liftIO do
+      poke (offset @"sType" ptr) VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT
+      poke (offset @"pNext" ptr) nextPtr
+      poke (offset @"flags" ptr) 0
+      poke (offset @"messageSeverity" ptr) fields.messageSeverity
+      poke (offset @"messageType" ptr) fields.messageType
+      poke (offset @"pfnUserCallback" ptr) fields.userCallbackFunPtr
+      poke (offset @"pUserData" ptr) userDataPtr
 
 data DebugUtilsObjectNameInfo =
   DebugUtilsObjectNameInfo {
@@ -188,21 +190,20 @@ instance MarshalAs VkDebugUtilsObjectNameInfoEXT DebugUtilsObjectNameInfo where
   marshalTo ptr fields = lowerCodensity do
     nextPtr <- fields.withNextPtr
     objectNamePtr <- fields.withObjectNamePtr
-    liftIO $ runForPtr ptr do
-      pokePtrOffset @"sType" VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT
-      pokePtrOffset @"pNext" nextPtr
-      pokePtrOffset @"objectType" fields.objectType
-      pokePtrOffset @"objectHandle" fields.objectHandle
-      pokePtrOffset @"pObjectName" (castPtr objectNamePtr)
+    liftIO do
+      poke (offset @"sType" ptr) VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT
+      poke (offset @"pNext" ptr) nextPtr
+      poke (offset @"objectType" ptr) fields.objectType
+      poke (offset @"objectHandle" ptr) fields.objectHandle
+      poke (offset @"pObjectName" ptr) $ castPtr objectNamePtr
 
 cmdBeginDebugUtilsLabel ::
   VK_EXT_debug_utils ->
   VkCommandBuffer ->
-  Codensity IO (Ptr VkDebugUtilsLabelEXT) ->
+  SomeIOWith (Ptr VkDebugUtilsLabelEXT) ->
   IO ()
-cmdBeginDebugUtilsLabel ext commandBuffer withLabelInfoPtr = lowerCodensity do
-  labelInfoPtr <- withLabelInfoPtr
-  liftIO $ vkCmdBeginDebugUtilsLabelEXT ext commandBuffer labelInfoPtr
+cmdBeginDebugUtilsLabel ext commandBuffer withLabelInfoPtr =
+  withLabelInfoPtr $ vkCmdBeginDebugUtilsLabelEXT ext commandBuffer
 
 cmdEndDebugUtilsLabel :: VK_EXT_debug_utils -> VkCmdEndDebugUtilsLabelEXT
 cmdEndDebugUtilsLabel = vkCmdEndDebugUtilsLabelEXT
@@ -210,43 +211,39 @@ cmdEndDebugUtilsLabel = vkCmdEndDebugUtilsLabelEXT
 cmdInsertDebugUtilsLabel ::
   VK_EXT_debug_utils ->
   VkCommandBuffer ->
-  Codensity IO (Ptr VkDebugUtilsLabelEXT) ->
+  SomeIOWith (Ptr VkDebugUtilsLabelEXT) ->
   IO ()
-cmdInsertDebugUtilsLabel ext commandBuffer withLabelInfoPtr = lowerCodensity do
-  labelInfoPtr <- withLabelInfoPtr
-  liftIO $ vkCmdInsertDebugUtilsLabelEXT ext commandBuffer labelInfoPtr
+cmdInsertDebugUtilsLabel ext commandBuffer withLabelInfoPtr =
+  withLabelInfoPtr $ vkCmdInsertDebugUtilsLabelEXT ext commandBuffer
 
 createDebugUtilsMessenger ::
   VK_EXT_debug_utils ->
   VkInstance ->
-  Codensity IO (Ptr VkDebugUtilsMessengerCreateInfoEXT) ->
-  Codensity IO (Ptr VkAllocationCallbacks) ->
+  SomeIOWith (Ptr VkDebugUtilsMessengerCreateInfoEXT) ->
+  SomeIOWith (Ptr VkAllocationCallbacks) ->
   IO VkDebugUtilsMessengerEXT
-createDebugUtilsMessenger ext vkInstance withCreateInfoPtr withAllocatorPtr = lowerCodensity do
-  createInfoPtr <- withCreateInfoPtr
-  allocatorPtr <- withAllocatorPtr
-  ptr <- Codensity alloca
-  liftIO do
+createDebugUtilsMessenger ext vkInstance withCreateInfoPtr withAllocatorPtr =
+  withCreateInfoPtr \createInfoPtr ->
+  withAllocatorPtr \allocatorPtr ->
+  allocaPeek \ptr -> do
     vkCreateDebugUtilsMessengerEXT ext vkInstance createInfoPtr allocatorPtr ptr >>=
       throwIfVkResultNotSuccess vkFunCreateDebugUtilsMessengerEXT
-    peek ptr
 
 destroyDebugUtilsMessenger ::
   VK_EXT_debug_utils ->
   VkInstance ->
   VkDebugUtilsMessengerEXT ->
-  Codensity IO (Ptr VkAllocationCallbacks) ->
+  SomeIOWith (Ptr VkAllocationCallbacks) ->
   IO ()
-destroyDebugUtilsMessenger ext vkInstance messenger withAllocatorPtr = lowerCodensity do
-  allocatorPtr <- withAllocatorPtr
-  liftIO $ vkDestroyDebugUtilsMessengerEXT ext vkInstance messenger allocatorPtr
+destroyDebugUtilsMessenger ext vkInstance messenger withAllocatorPtr =
+  withAllocatorPtr $ vkDestroyDebugUtilsMessengerEXT ext vkInstance messenger
 
 debugUtilsMessengerResource ::
   VK_EXT_debug_utils ->
   VkInstance ->
-  Codensity IO (Ptr VkDebugUtilsMessengerCreateInfoEXT) ->
-  Codensity IO (Ptr VkAllocationCallbacks) ->
-  Codensity IO (Ptr VkAllocationCallbacks) ->
+  SomeIOWith (Ptr VkDebugUtilsMessengerCreateInfoEXT) ->
+  SomeIOWith (Ptr VkAllocationCallbacks) ->
+  SomeIOWith (Ptr VkAllocationCallbacks) ->
   Resource VkDebugUtilsMessengerEXT
 debugUtilsMessengerResource ext vkInstance withCreateInfoPtr withCreateAllocatorPtr withDestroyAllocatorPtr = Resource
   (createDebugUtilsMessenger ext vkInstance withCreateInfoPtr withCreateAllocatorPtr)
@@ -255,11 +252,10 @@ debugUtilsMessengerResource ext vkInstance withCreateInfoPtr withCreateAllocator
 queueBeginDebugUtilsLabel ::
   VK_EXT_debug_utils ->
   VkQueue ->
-  Codensity IO (Ptr VkDebugUtilsLabelEXT) ->
+  SomeIOWith (Ptr VkDebugUtilsLabelEXT) ->
   IO ()
-queueBeginDebugUtilsLabel ext queue withLabelInfoPtr = lowerCodensity do
-  labelInfoPtr <- withLabelInfoPtr
-  liftIO $ vkQueueBeginDebugUtilsLabelEXT ext queue labelInfoPtr
+queueBeginDebugUtilsLabel ext queue withLabelInfoPtr =
+  withLabelInfoPtr $ vkQueueBeginDebugUtilsLabelEXT ext queue
 
 queueEndDebugUtilsLabel :: VK_EXT_debug_utils -> VkQueueEndDebugUtilsLabelEXT
 queueEndDebugUtilsLabel = vkQueueEndDebugUtilsLabelEXT
@@ -267,30 +263,27 @@ queueEndDebugUtilsLabel = vkQueueEndDebugUtilsLabelEXT
 queueInsertDebugUtilsLabel ::
   VK_EXT_debug_utils ->
   VkQueue ->
-  Codensity IO (Ptr VkDebugUtilsLabelEXT) ->
+  SomeIOWith (Ptr VkDebugUtilsLabelEXT) ->
   IO ()
-queueInsertDebugUtilsLabel ext queue withLabelInfoPtr = lowerCodensity do
-  labelInfoPtr <- withLabelInfoPtr
-  liftIO $ vkQueueInsertDebugUtilsLabelEXT ext queue labelInfoPtr
+queueInsertDebugUtilsLabel ext queue withLabelInfoPtr =
+  withLabelInfoPtr $ vkQueueInsertDebugUtilsLabelEXT ext queue
 
 setDebugUtilsObjectName ::
   VK_EXT_debug_utils ->
   VkDevice ->
-  Codensity IO (Ptr VkDebugUtilsObjectNameInfoEXT) ->
+  SomeIOWith (Ptr VkDebugUtilsObjectNameInfoEXT) ->
   IO ()
-setDebugUtilsObjectName ext device withNameInfoPtr = lowerCodensity do
-  nameInfoPtr <- withNameInfoPtr
-  liftIO $ vkSetDebugUtilsObjectNameEXT ext device nameInfoPtr >>=
+setDebugUtilsObjectName ext device withNameInfoPtr =
+  withNameInfoPtr (vkSetDebugUtilsObjectNameEXT ext device) >>=
     throwIfVkResultNotSuccess vkFunSetDebugUtilsObjectNameEXT
 
 setDebugUtilsObjectTag ::
   VK_EXT_debug_utils ->
   VkDevice ->
-  Codensity IO (Ptr VkDebugUtilsObjectTagInfoEXT) ->
+  SomeIOWith (Ptr VkDebugUtilsObjectTagInfoEXT) ->
   IO ()
-setDebugUtilsObjectTag ext device withTagInfoPtr = lowerCodensity do
-  nameInfoPtr <- withTagInfoPtr
-  liftIO $ vkSetDebugUtilsObjectTagEXT ext device nameInfoPtr >>=
+setDebugUtilsObjectTag ext device withTagInfoPtr =
+  withTagInfoPtr (vkSetDebugUtilsObjectTagEXT ext device) >>=
     throwIfVkResultNotSuccess vkFunSetDebugUtilsObjectTagEXT
 
 submitDebugUtilsMessage ::
@@ -298,8 +291,7 @@ submitDebugUtilsMessage ::
   VkInstance ->
   VkDebugUtilsMessageSeverityFlagBitsEXT ->
   VkDebugUtilsMessageTypeFlagsEXT ->
-  Codensity IO (Ptr VkDebugUtilsMessengerCallbackDataEXT) ->
+  SomeIOWith (Ptr VkDebugUtilsMessengerCallbackDataEXT) ->
   IO ()
-submitDebugUtilsMessage ext vkInstance messageSeverity messageTypes withCallbackDataPtr = lowerCodensity do
-  callbackDataPtr <- withCallbackDataPtr
-  liftIO $ vkSubmitDebugUtilsMessageEXT ext vkInstance messageSeverity messageTypes callbackDataPtr
+submitDebugUtilsMessage ext vkInstance messageSeverity messageTypes withCallbackDataPtr =
+  withCallbackDataPtr $ vkSubmitDebugUtilsMessageEXT ext vkInstance messageSeverity messageTypes
